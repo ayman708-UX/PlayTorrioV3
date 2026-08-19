@@ -3,19 +3,20 @@ import 'package:flutter/material.dart';
 import '../../models/anime/anime_media.dart';
 import '../../models/stream/stream_model.dart';
 import '../../services/anime/anime_scraper_service.dart';
-import '../../services/anime/anime_library_service.dart';
 import '../player/player_screen.dart';
 
 class AnimeStreamSheet extends StatefulWidget {
   final AnimeMedia anime;
   final int episodeNumber;
   final bool autoPlay;
+  final bool isDub;
 
   const AnimeStreamSheet({
     super.key,
     required this.anime,
     required this.episodeNumber,
     this.autoPlay = false,
+    this.isDub = false,
   });
 
   @override
@@ -24,12 +25,18 @@ class AnimeStreamSheet extends StatefulWidget {
 
 class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
   final AnimeScraperService _scraper = AnimeScraperService.instance;
-  final AnimeLibraryService _library = AnimeLibraryService.instance;
 
   final List<StreamSource> _sources = [];
   bool _isScraping = true;
   String? _error;
   StreamSubscription<StreamSource>? _streamSub;
+
+  List<StreamSource> get _filteredSources {
+    final isDub = widget.isDub;
+    return _sources
+        .where((s) => ((s.description?.contains('Dub') ?? false) == isDub))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -62,7 +69,9 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
             _sources.add(source);
           });
 
-          if (widget.autoPlay && _sources.length == 1) {
+          if (widget.autoPlay &&
+              _filteredSources.length == 1 &&
+              identical(_filteredSources.first, source)) {
             _playSource(source);
           }
         }
@@ -79,8 +88,10 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
         if (mounted) {
           setState(() {
             _isScraping = false;
-            if (_sources.isEmpty) {
-              _error = 'No playable streams found for Episode ${widget.episodeNumber}.';
+            if (_filteredSources.isEmpty) {
+              _error = widget.isDub
+                  ? 'No dub streams found for Episode ${widget.episodeNumber}.'
+                  : 'No sub streams found for Episode ${widget.episodeNumber}.';
             }
           });
         }
@@ -89,14 +100,6 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
   }
 
   void _playSource(StreamSource source) {
-    // Record watch history
-    _library.updateProgress(
-      anime: widget.anime,
-      episodeNumber: widget.episodeNumber,
-      positionSeconds: 1,
-      durationSeconds: 1440,
-    );
-
     final detail = AnimeScraperService.toMovieDetail(widget.anime);
     final video = AnimeScraperService.toVideo(widget.anime, widget.episodeNumber);
 
@@ -177,7 +180,7 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
                             ),
                           ] else
                             Text(
-                              '${_sources.length} sources found',
+                              '${_filteredSources.length} ${widget.isDub ? 'dub' : 'sub'} sources found',
                               style: const TextStyle(
                                 color: Colors.white54,
                                 fontSize: 12,
@@ -199,7 +202,7 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
 
           // Stream list
           Flexible(
-            child: _sources.isEmpty && _isScraping
+            child: _filteredSources.isEmpty && _isScraping
                 ? const Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
                     child: Column(
@@ -214,7 +217,7 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
                       ],
                     ),
                   )
-                : _sources.isEmpty && _error != null
+                : _filteredSources.isEmpty && _error != null
                     ? Padding(
                         padding: const EdgeInsets.all(28),
                         child: Column(
@@ -248,11 +251,11 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
                     : ListView.separated(
                         shrinkWrap: true,
                         padding: const EdgeInsets.all(16),
-                        itemCount: _sources.length,
+                        itemCount: _filteredSources.length,
                         separatorBuilder: (_, __) =>
                             const SizedBox(height: 10),
                         itemBuilder: (context, index) {
-                          final s = _sources[index];
+                          final s = _filteredSources[index];
                           final isDub =
                               s.description?.contains('Dub') ?? false;
 

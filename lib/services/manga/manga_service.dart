@@ -50,37 +50,27 @@ class MangaService {
   // ── Browse / Search ─────────────────────────────────────────────────
 
   Future<List<Manga>> getManga({int page = 1, String? tag, bool allowAdult = false}) async {
-    try {
-      final offset = (page - 1) * _pageSize;
-      final adult = allowAdult ? 'Any' : 'False';
-      var url =
-          '$_baseUrl/search/data?text=&display_mode=Full+Display&sort=Popularity&order=Descending&official=Any&adult=$adult&offset=$offset';
-      if (tag != null) {
-        url += '&included_tag=${Uri.encodeComponent(tag)}';
-      }
-      debugPrint('[MangaService] Fetching page $page: $url');
-      final html = await _fetchHtml(url);
-      return _parseSearchResults(html);
-    } catch (e) {
-      debugPrint('[MangaService] Error fetching manga: $e');
-      return [];
+    final offset = (page - 1) * _pageSize;
+    final adult = allowAdult ? 'Any' : 'False';
+    var url =
+        '$_baseUrl/search/data?text=&display_mode=Full+Display&sort=Popularity&order=Descending&official=Any&adult=$adult&offset=$offset';
+    if (tag != null) {
+      url += '&included_tag=${Uri.encodeComponent(tag)}';
     }
+    debugPrint('[MangaService] Fetching page $page: $url');
+    final html = await _fetchHtml(url);
+    return _parseSearchResults(html);
   }
 
   Future<List<Manga>> searchManga(String query, {int page = 1, bool allowAdult = false}) async {
-    try {
-      final offset = (page - 1) * _pageSize;
-      final adult = allowAdult ? 'Any' : 'False';
-      final encodedQuery = Uri.encodeComponent(query);
-      final url =
-          '$_baseUrl/search/data?text=$encodedQuery&display_mode=Full+Display&sort=Best+Match&order=Descending&official=Any&adult=$adult&offset=$offset';
-      debugPrint('[MangaService] Searching page $page: $url');
-      final html = await _fetchHtml(url);
-      return _parseSearchResults(html);
-    } catch (e) {
-      debugPrint('[MangaService] Error searching manga: $e');
-      return [];
-    }
+    final offset = (page - 1) * _pageSize;
+    final adult = allowAdult ? 'Any' : 'False';
+    final encodedQuery = Uri.encodeComponent(query);
+    final url =
+        '$_baseUrl/search/data?text=$encodedQuery&display_mode=Full+Display&sort=Best+Match&order=Descending&official=Any&adult=$adult&offset=$offset';
+    debugPrint('[MangaService] Searching page $page: $url');
+    final html = await _fetchHtml(url);
+    return _parseSearchResults(html);
   }
 
   List<Manga> _parseSearchResults(String html) {

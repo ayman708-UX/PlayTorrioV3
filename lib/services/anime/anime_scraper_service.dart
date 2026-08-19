@@ -35,42 +35,6 @@ class AnimeScraperService {
     yield* controller.stream;
   }
 
-  /// Fetch all scraped stream sources as a list
-  Future<List<StreamSource>> scrapeAllStreams({
-    required AnimeMedia anime,
-    required int episodeNumber,
-  }) async {
-    final list = <StreamSource>[];
-    await for (final source in scrapeStreamsStream(
-      anime: anime,
-      episodeNumber: episodeNumber,
-    )) {
-      list.add(source);
-    }
-    return list;
-  }
-
-  /// Get the single best scraped stream source (for instant Play / Resume)
-  Future<StreamSource?> getBestStream({
-    required AnimeMedia anime,
-    required int episodeNumber,
-    bool isDub = false,
-  }) async {
-    // 1. Try Miruro first
-    final miruroList = await _fetchMiruroSources(anime, episodeNumber, isDub);
-    if (miruroList.isNotEmpty) return miruroList.first;
-
-    // 2. Try Gogoanime fallback
-    final gogoList = await _fetchGogoSources(anime, episodeNumber, isDub);
-    if (gogoList.isNotEmpty) return gogoList.first;
-
-    // 3. Try Zoro / HiAnime fallback
-    final zoroList = await _fetchZoroSources(anime, episodeNumber, isDub);
-    if (zoroList.isNotEmpty) return zoroList.first;
-
-    return null;
-  }
-
   // ───────────────────────────────────────────────────────────────────────────
   // Miruro Provider Scraper
   // ───────────────────────────────────────────────────────────────────────────

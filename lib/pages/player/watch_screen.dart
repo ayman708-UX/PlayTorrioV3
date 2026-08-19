@@ -68,6 +68,7 @@ class _WatchScreenState extends State<WatchScreen>
   final List<StreamSource> _pendingSources = [];
   Timer? _sourceBatchTimer;
   bool _isLoadingSources = true;
+  String? _loadError;
 
   // Animation
   late AnimationController _animController;
@@ -124,7 +125,11 @@ class _WatchScreenState extends State<WatchScreen>
           _flushPendingSources,
         );
       }
-    } catch (_) {}
+      } catch (e) {
+        if (mounted) {
+          setState(() => _loadError = e.toString());
+        }
+      }
 
     _flushPendingSources();
     if (mounted && _isLoadingSources) {
@@ -1141,7 +1146,17 @@ class _WatchScreenState extends State<WatchScreen>
   }
 
   Widget _buildEmptyState() {
-    return const _EmptySourcesStateWidget();
+    return _EmptySourcesStateWidget(
+      error: _loadError,
+      onRetry: () {
+        setState(() {
+          _sources.clear();
+          _loadError = null;
+          _isLoadingSources = true;
+        });
+        _loadStreams();
+      },
+    );
   }
 
   Widget _buildShimmerList() {
@@ -1535,7 +1550,10 @@ class _ShimmerCardState extends State<_ShimmerCard>
 }
 
 class _EmptySourcesStateWidget extends StatefulWidget {
-  const _EmptySourcesStateWidget();
+  final String? error;
+  final VoidCallback? onRetry;
+
+  const _EmptySourcesStateWidget({this.error, this.onRetry});
 
   @override
   State<_EmptySourcesStateWidget> createState() =>
@@ -1580,6 +1598,10 @@ class _EmptySourcesStateWidgetState extends State<_EmptySourcesStateWidget>
 
   @override
   Widget build(BuildContext context) {
+    final isError = widget.error != null;
+    final icon = isError ? Icons.cloud_off_rounded : Icons.radar_rounded;
+    final iconColor = isError ? const Color(0xFFFF6B6B) : const Color(0xFF7C5CFC);
+
     // Static card content — identical on every platform.
     final cardContent = Container(
       padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
@@ -1595,21 +1617,15 @@ class _EmptySourcesStateWidgetState extends State<_EmptySourcesStateWidget>
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF7C5CFC).withValues(alpha: 0.1),
-              border: Border.all(
-                color: const Color(0xFF7C5CFC).withValues(alpha: 0.3),
-              ),
+              color: iconColor.withValues(alpha: 0.1),
+              border: Border.all(color: iconColor.withValues(alpha: 0.3)),
             ),
-            child: const Icon(
-              Icons.radar_rounded,
-              color: Color(0xFF7C5CFC),
-              size: 40,
-            ),
+            child: Icon(icon, color: iconColor, size: 40),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'No sources found',
-            style: TextStyle(
+          Text(
+            isError ? 'Could not load streams' : 'No sources found',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w500,
@@ -1618,10 +1634,12 @@ class _EmptySourcesStateWidgetState extends State<_EmptySourcesStateWidget>
           const SizedBox(height: 12),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 280),
-            child: const Text(
-              'No streams found. Install more addons from Settings or try another title.',
+            child: Text(
+              isError
+                  ? 'Something went wrong while searching for streams. Check your connection and try again.'
+                  : 'No streams found. Install more addons from Settings or try another title.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Color(0xFF9B9BA5),
                 fontSize: 14,
                 height: 1.5,
@@ -1634,12 +1652,14 @@ class _EmptySourcesStateWidgetState extends State<_EmptySourcesStateWidget>
             onExit: (_) => setState(() => _isHovering = false),
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsPage()),
-                );
-              },
+              onTap: isError
+                  ? widget.onRetry
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsPage()),
+                      );
+                    },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(
@@ -1666,18 +1686,20 @@ class _EmptySourcesStateWidgetState extends State<_EmptySourcesStateWidget>
                 child: AnimatedScale(
                   scale: _isHovering ? 1.05 : 1.0,
                   duration: const Duration(milliseconds: 200),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.extension_rounded,
+                        isError
+                            ? Icons.refresh_rounded
+                            : Icons.extension_rounded,
                         color: Colors.white,
                         size: 18,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        'Install Addons',
-                        style: TextStyle(
+                        isError ? 'Retry' : 'Install Addons',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,

@@ -2,10 +2,6 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-import '../../models/movie/movie.dart';
-import '../../models/movie/link.dart';
-import '../../models/movie/video.dart';
-import '../../models/movie/movie_detail.dart';
 import '../../models/movie/movie_section.dart';
 import '../../services/addon/addon_manager.dart';
 import '../../widgets/movie/movie_slider_section.dart';
@@ -25,6 +21,7 @@ class _SearchPageState extends State<SearchPage> {
   bool _isLoading = false;
   List<MovieSection> _results = [];
   String _lastQuery = '';
+  String? _error;
 
   @override
   void dispose() {
@@ -43,6 +40,7 @@ class _SearchPageState extends State<SearchPage> {
         _results.clear();
         _isLoading = false;
         _lastQuery = '';
+        _error = null;
       });
       return;
     }
@@ -58,6 +56,7 @@ class _SearchPageState extends State<SearchPage> {
     setState(() {
       _isLoading = true;
       _lastQuery = query;
+      _error = null;
     });
 
     try {
@@ -68,11 +67,12 @@ class _SearchPageState extends State<SearchPage> {
         _results = results;
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
         _results = [];
+        _error = e.toString();
       });
     }
   }
@@ -179,6 +179,38 @@ class _SearchPageState extends State<SearchPage> {
           if (_isLoading)
             const Center(
               child: CircularProgressIndicator(color: Color(0xFF7C5CFF)),
+            )
+          else if (_error != null)
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.cloud_off_rounded,
+                    size: 64,
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Search failed. Check your connection and try again.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => _performSearch(_lastQuery),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C5CFF),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             )
           else if (_lastQuery.isNotEmpty && _results.isEmpty)
             Center(

@@ -4,10 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/movie/movie.dart';
-import '../../models/movie/link.dart';
 import '../../models/movie/video.dart';
 import '../../models/movie/movie_detail.dart';
-import '../../models/movie/movie_section.dart';
 import '../../models/my_list/my_list_item.dart';
 import '../../services/addon/addon_manager.dart';
 import '../../services/metadata/bestsimilar_scraper.dart';
@@ -16,7 +14,6 @@ import '../../services/my_list/my_list_service.dart';
 import '../../utils/route_transitions.dart';
 import '../discover/discover_page.dart';
 import '../player/watch_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 // ---------------------------------------------------------------------------
 // Design tokens
 // ---------------------------------------------------------------------------
@@ -235,11 +232,19 @@ class _DetailsPageState extends State<DetailsPage> with SingleTickerProviderStat
   }
 
   Future<void> _fetchDetails() async {
-    final meta = await MetadataService.fetchMeta(
-      baseUrl: widget.movie.addonBaseUrl,
-      type: widget.movie.type,
-      imdbId: widget.movie.id,
-    );
+    MovieDetail? meta;
+    try {
+      meta = await MetadataService.fetchMeta(
+        baseUrl: widget.movie.addonBaseUrl,
+        type: widget.movie.type,
+        imdbId: widget.movie.id,
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
 
     if (mounted) {
       setState(() {

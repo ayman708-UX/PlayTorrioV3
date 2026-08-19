@@ -124,6 +124,7 @@ class _AnimePageState extends State<AnimePage> {
         anime: anime,
         episodeNumber: episodeNumber,
         autoPlay: true,
+        isDub: isDub,
       ),
     );
   }
@@ -367,16 +368,6 @@ class _AnimePageState extends State<AnimePage> {
               DockItem(
                 icon: Icons.animation_rounded,
                 label: 'Anime',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.extension_rounded,
-                label: 'Addons',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.download_rounded,
-                label: 'Downloads',
                 onTap: () {},
               ),
               DockItem(

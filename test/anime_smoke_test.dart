@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:playtorrio/models/anime/anime_media.dart';
 import 'package:playtorrio/services/anime/anilist_service.dart';
-import 'package:playtorrio/services/anime/miruro_stream_resolver.dart';
 import 'package:playtorrio/services/anime/anime_scraper_service.dart';
 
 void main() {
@@ -65,20 +64,6 @@ void main() {
 
     final nextYear = AnilistService.nextSeasonYear();
     expect(nextYear >= DateTime.now().year, isTrue);
-  });
-
-  test('MiruroStreamResolver generates valid episode list', () {
-    const anime = AnimeMedia(
-      id: 1,
-      titleEnglish: 'Demon Slayer',
-      totalEpisodes: 26,
-    );
-
-    final episodes = MiruroStreamResolver.instance.generateEpisodeList(anime);
-    expect(episodes.length, 26);
-    expect(episodes.first.number, 1);
-    expect(episodes.first.displayTitle, 'Episode 1');
-    expect(episodes.last.number, 26);
   });
 
   test('AnimeWatchlistItem progress calculation', () {

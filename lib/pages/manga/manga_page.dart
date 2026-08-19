@@ -35,6 +35,7 @@ class _MangaPageState extends State<MangaPage> {
   bool _isLoadingMore = false;
   int _currentPage = 1;
   String _searchQuery = '';
+  String? _error;
   
   // Track grid layout dimensions
   late double _screenWidth;
@@ -102,21 +103,31 @@ class _MangaPageState extends State<MangaPage> {
       _isLoading = true;
       _currentPage = 1;
       _mangaList.clear();
+      _error = null;
     });
-    
-    final results = await Future.wait([
-      _searchQuery.isEmpty 
-          ? _mangaService.getManga(page: _currentPage)
-          : _mangaService.searchManga(_searchQuery, page: _currentPage),
-      _mangaService.getReadingHistory(),
-    ]);
 
+    List<Manga> manga;
+    try {
+      manga = _searchQuery.isEmpty
+          ? await _mangaService.getManga(page: _currentPage)
+          : await _mangaService.searchManga(_searchQuery, page: _currentPage);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = e.toString();
+        });
+      }
+      return;
+    }
+
+    final history = await _mangaService.getReadingHistory();
     if (mounted) {
       setState(() {
-        _mangaList = results[0] as List<Manga>;
-        _readingHistory = results[1] as List<Map<String, dynamic>>;
+        _mangaList = manga;
+        _readingHistory = history;
         _isLoading = false;
-        
+
         _cachedMangaList = _mangaList;
         _cachedReadingHistory = _readingHistory;
         _cachedCurrentPage = _currentPage;
@@ -126,18 +137,31 @@ class _MangaPageState extends State<MangaPage> {
   }
 
   Future<void> _loadMore() async {
+    if (_error != null) return;
     setState(() => _isLoadingMore = true);
-    
+
     _currentPage++;
-    final newManga = _searchQuery.isEmpty 
-        ? await _mangaService.getManga(page: _currentPage)
-        : await _mangaService.searchManga(_searchQuery, page: _currentPage);
-        
+    List<Manga> newManga;
+    try {
+      newManga = _searchQuery.isEmpty
+          ? await _mangaService.getManga(page: _currentPage)
+          : await _mangaService.searchManga(_searchQuery, page: _currentPage);
+    } catch (e) {
+      _currentPage--;
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+          _error = e.toString();
+        });
+      }
+      return;
+    }
+
     if (mounted) {
       setState(() {
         _mangaList.addAll(newManga);
         _isLoadingMore = false;
-        
+
         _cachedMangaList = _mangaList;
         _cachedCurrentPage = _currentPage;
       });
@@ -262,7 +286,38 @@ class _MangaPageState extends State<MangaPage> {
           ),
         ),
         
-        if (_isLoading && _mangaList.isEmpty)
+        if (_error != null)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.cloud_off_rounded,
+                    size: 64,
+                    color: Colors.white.withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Could not load manga. Check your connection and try again.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _loadInitialData,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C5CFF),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (_isLoading && _mangaList.isEmpty)
           const SliverFillRemaining(
             hasScrollBody: false,
             child: Center(
