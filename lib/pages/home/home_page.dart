@@ -13,6 +13,7 @@ import '../../services/addon/addon_manager.dart';
 import '../../services/metadata/metadata_service.dart';
 import '../../services/glass_settings.dart';
 import '../../utils/route_transitions.dart';
+import '../../widgets/common/dpad_focus.dart';
 import '../../widgets/common/error_view.dart';
 import '../../widgets/movie/movie_slider_section.dart';
 import '../search/search_page.dart';
@@ -24,8 +25,7 @@ import '../anime/anime_page.dart';
 import '../my_list/my_list_page.dart';
 
 import '../../widgets/common/liquid_dock.dart';
-import '../../services/app_updater_service.dart';
-import '../../widgets/update_dialog.dart';
+import '../../utils/tab_navigation.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -170,6 +170,40 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
 
+    return Scaffold(
+      backgroundColor: const Color(0xFF080A0F),
+      body: ValueListenableBuilder<int>(
+        valueListenable: TabNav.index,
+        builder: (context, tabIndex, _) {
+          return Stack(
+            children: [
+              IndexedStack(
+                index: tabIndex,
+                children: [
+                  _buildHomeTab(topPadding, context),
+                ],
+              ),
+
+              // ── Liquid Dock Navbar (visible on every tab) ──
+              Positioned(
+                bottom: 24,
+                left: 0,
+                right: 0,
+                child: Center(child: _buildDock()),
+              ),
+
+              // ── Intro Splash Screen (home tab only) ──
+              if (tabIndex == TabNav.home) _buildIntroOverlay(context),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  /// The Home tab: hero carousel + movie sections, wrapped in the liquid
+  /// glass view when enabled, with its own floating glass app bar.
+  Widget _buildHomeTab(double topPadding, BuildContext context) {
     final backgroundContent = Stack(
       children: [
         // ── Main scrollable content ──
@@ -206,19 +240,6 @@ class _HomePageState extends State<HomePage> {
       ],
     );
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF080A0F),
-      body: _buildBody(backgroundContent, topPadding, context),
-    );
-  }
-
-  /// Uses the same shader-free composition on every platform. This avoids
-  /// capturing the scrolling page and keeps Skia and Impeller visually equal.
-  Widget _buildBody(
-    Widget backgroundContent,
-    double topPadding,
-    BuildContext context,
-  ) {
     final overlayChildren = <Widget>[
       // ── Floating glass app bar ──
       Positioned(
@@ -239,119 +260,6 @@ class _HomePageState extends State<HomePage> {
           bottom: 40,
           child: _CustomScrollTrack(controller: _scrollController),
         ),
-
-      // ── Liquid Dock Navbar ──
-      Positioned(
-        bottom: 24,
-        left: 0,
-        right: 0,
-        child: Center(
-          child: LiquidDock(
-            items: [
-              DockItem(icon: Icons.home_rounded, label: 'Home', onTap: () {}),
-              DockItem(
-                icon: Icons.auto_stories_rounded,
-                label: 'Manga',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MangaPage(),
-                      tapPosition: null, // Reveals from center
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.headphones_rounded,
-                label: 'Audiobooks',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const AudiobooksPage(),
-                      tapPosition:
-                          null, // Liquid reveal transition from center/dock
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.music_note_rounded,
-                label: 'Music',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MusicPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.animation_rounded,
-                label: 'Anime',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const AnimePage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.extension_rounded,
-                label: 'Addons',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.download_rounded,
-                label: 'Downloads',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.favorite_rounded,
-                label: 'My List',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MyListPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.bookmark_rounded,
-                label: 'Watchlist',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.settings_rounded,
-                label: 'Settings',
-                onTap: () => _navigateToSettings(null),
-              ),
-              DockItem(
-                icon: Icons.person_rounded,
-                label: 'Profile',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.search_rounded,
-                label: 'Search',
-                onTap: () => _navigateToSearch(null),
-              ),
-            ],
-          ),
-        ),
-      ),
-
-      // ── Intro Splash Screen ──
-      Positioned.fill(child: _buildIntroOverlay(context)),
     ];
 
     return ValueListenableBuilder<bool>(
@@ -380,6 +288,102 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+
+  /// The LiquidDock navigation: Home is the root tab; the remaining items
+  /// push full pages.
+  Widget _buildDock() {
+    return LiquidDock(
+      items: [
+        DockItem(
+          icon: Icons.home_rounded,
+          label: 'Home',
+          selected: TabNav.index.value == TabNav.home,
+          onTap: () => TabNav.switchTo(TabNav.home),
+        ),
+        DockItem(
+          icon: Icons.auto_stories_rounded,
+          label: 'Manga',
+          onTap: () {
+            Navigator.push(
+              context,
+              LiquidRevealRoute(
+                page: const MangaPage(),
+                tapPosition: null, // Reveals from center
+              ),
+            );
+          },
+        ),
+        DockItem(
+          icon: Icons.headphones_rounded,
+          label: 'Audiobooks',
+          onTap: () {
+            Navigator.push(
+              context,
+              LiquidRevealRoute(
+                page: const AudiobooksPage(),
+                tapPosition:
+                    null, // Liquid reveal transition from center/dock
+              ),
+            );
+          },
+        ),
+        DockItem(
+          icon: Icons.music_note_rounded,
+          label: 'Music',
+          onTap: () {
+            Navigator.push(
+              context,
+              LiquidRevealRoute(
+                page: const MusicPage(),
+                tapPosition: null,
+              ),
+            );
+          },
+        ),
+        DockItem(
+          icon: Icons.animation_rounded,
+          label: 'Anime',
+          onTap: () {
+            Navigator.push(
+              context,
+              LiquidRevealRoute(
+                page: const AnimePage(),
+                tapPosition: null,
+              ),
+            );
+          },
+        ),
+        DockItem(
+          icon: Icons.extension_rounded,
+          label: 'Addons',
+          onTap: () => _navigateToSettings(null),
+        ),
+        DockItem(
+          icon: Icons.favorite_rounded,
+          label: 'My List',
+          onTap: () {
+            Navigator.push(
+              context,
+              LiquidRevealRoute(
+                page: const MyListPage(),
+                tapPosition: null,
+              ),
+            );
+          },
+        ),
+        DockItem(
+          icon: Icons.settings_rounded,
+          label: 'Settings',
+          onTap: () => _navigateToSettings(null),
+        ),
+        DockItem(
+          icon: Icons.search_rounded,
+          label: 'Search',
+          onTap: () => _navigateToSearch(null),
+        ),
+      ],
     );
   }
 
@@ -467,10 +471,15 @@ class _GlassAppBar extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: const [Color(0xF5080A0F), Color(0xE6080A0F)],
+            colors: [
+              const Color(0xFF080A0F).withValues(alpha: 0.96),
+              const Color(0xFF080A0F).withValues(alpha: 0.0),
+            ],
           ),
           border: Border(
-            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+            bottom: BorderSide(
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
           ),
         ),
         child: Row(
@@ -530,6 +539,26 @@ class _GlassAppBar extends StatelessWidget {
                   },
                 );
               },
+            ),
+            // Glass profile avatar (matches IPTVNutz top bar)
+            Container(
+              width: 40,
+              height: 40,
+              margin: const EdgeInsets.only(left: 6, right: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1D27),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0x33FFFFFF),
+                  width: 0.5,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.person_rounded,
+                color: Color(0xB3FFFFFF),
+                size: 22,
+              ),
             ),
           ],
         ),
@@ -680,6 +709,7 @@ class _HeroCarouselState extends State<_HeroCarousel> {
               controller: _pageController,
               itemCount: widget.movies.length,
               onPageChanged: _onPageChanged,
+              allowImplicitScrolling: true,
               itemBuilder: (context, i) {
                 final movie = widget.movies[i];
                 final detail = _detailsCache[movie.id];
@@ -703,27 +733,31 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                     final active = i == _index;
                     return GestureDetector(
                       onTap: () => _goTo(i),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOutCubic,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: active ? 22 : 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(4),
-                          color: active
-                              ? const Color(0xFF7C5CFF)
-                              : Colors.white.withValues(alpha: 0.30),
-                          boxShadow: active
-                              ? [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF7C5CFF,
-                                    ).withValues(alpha: 0.55),
-                                    blurRadius: 8,
-                                  ),
-                                ]
-                              : null,
+                      child: DpadFocus(
+                        radius: 5,
+                        onPressed: () => _goTo(i),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutCubic,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: active ? 22 : 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            color: active
+                                ? const Color(0xFF7C5CFF)
+                                : Colors.white.withValues(alpha: 0.30),
+                            boxShadow: active
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF7C5CFF,
+                                      ).withValues(alpha: 0.55),
+                                      blurRadius: 8,
+                                    ),
+                                  ]
+                                : null,
+                          ),
                         ),
                       ),
                     );
@@ -741,9 +775,13 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                   top: 0,
                   bottom: 0,
                   child: Center(
-                    child: _CarouselArrow(
-                      icon: Icons.arrow_back_ios_new_rounded,
-                      onTap: () => _goTo(_index - 1),
+                    child: DpadFocus(
+                      radius: 26,
+                      onPressed: () => _goTo(_index - 1),
+                      child: _CarouselArrow(
+                        icon: Icons.arrow_back_ios_new_rounded,
+                        onTap: () => _goTo(_index - 1),
+                      ),
                     ),
                   ),
                 ),
@@ -753,9 +791,13 @@ class _HeroCarouselState extends State<_HeroCarousel> {
                   top: 0,
                   bottom: 0,
                   child: Center(
-                    child: _CarouselArrow(
-                      icon: Icons.arrow_forward_ios_rounded,
-                      onTap: () => _goTo(_index + 1),
+                    child: DpadFocus(
+                      radius: 26,
+                      onPressed: () => _goTo(_index + 1),
+                      child: _CarouselArrow(
+                        icon: Icons.arrow_forward_ios_rounded,
+                        onTap: () => _goTo(_index + 1),
+                      ),
                     ),
                   ),
                 ),
@@ -854,7 +896,10 @@ class _HeroSlide extends StatelessWidget {
     final genres = detail?.genres ?? const <String>[];
     final logo = detail?.logo;
 
-    return Stack(
+    return DpadFocus(
+      radius: 16,
+      onPressed: () => _openDetails(context),
+      child: Stack(
       fit: StackFit.expand,
       children: [
         // ── Background ──
@@ -1119,6 +1164,7 @@ class _HeroSlide extends StatelessWidget {
           ),
         ),
       ],
+      ),
     );
   }
 }

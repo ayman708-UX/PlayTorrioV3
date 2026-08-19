@@ -4,17 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../../services/glass_settings.dart';
+import 'dpad_focus.dart';
 import 'performance_liquid_lens.dart';
 
 class DockItem {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final bool selected;
 
   const DockItem({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.selected = false,
   });
 }
 
@@ -173,6 +176,7 @@ class _LiquidDockState extends State<LiquidDock> {
                       size: widget.baseItemSize,
                       hoverSize: widget.maxItemSize,
                       proximity: proximity,
+                      selected: widget.items[index].selected,
                     ),
                   );
                 }),
@@ -243,12 +247,14 @@ class _DockItemWidget extends StatefulWidget {
   final double size;
   final double hoverSize;
   final double proximity;
+  final bool selected;
 
   const _DockItemWidget({
     required this.item,
     required this.size,
     required this.hoverSize,
     required this.proximity,
+    required this.selected,
   });
 
   @override
@@ -265,7 +271,9 @@ class _DockItemWidgetState extends State<_DockItemWidget> {
     child: Icon(
       widget.item.icon,
       size: size * 0.45,
-      color: const Color(0xF2FFFFFF),
+      color: widget.selected
+          ? const Color(0xFFFFD700)
+          : const Color(0xF2FFFFFF),
     ),
   );
 
@@ -396,11 +404,30 @@ class _DockItemWidgetState extends State<_DockItemWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: ValueListenableBuilder<bool>(
-        valueListenable: GlassSettings.enabled,
-        builder: (context, enabled, _) =>
-            enabled ? _buildFullLiquid() : _buildOptimized(),
+    return DpadFocus(
+      radius: 20,
+      onPressed: widget.item.onTap,
+      child: RepaintBoundary(
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            ValueListenableBuilder<bool>(
+              valueListenable: GlassSettings.enabled,
+              builder: (context, enabled, _) =>
+                  enabled ? _buildFullLiquid() : _buildOptimized(),
+            ),
+            if (widget.selected)
+              Container(
+                width: 5,
+                height: 5,
+                margin: const EdgeInsets.only(top: 2),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFD700),
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -8,6 +8,7 @@ import '../../models/movie/movie_detail.dart';
 import '../../models/movie/movie_section.dart';
 import '../../pages/details/details_page.dart';
 import '../../utils/route_transitions.dart';
+import '../common/dpad_focus.dart';
 import '../common/poster_skeleton.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,7 +93,21 @@ class _MovieCardState extends State<MovieCard> {
   Widget build(BuildContext context) {
     final movie = widget.movie;
 
-    return MouseRegion(
+    final onActivate = widget.onTap ??
+        () {
+          Navigator.push(
+            context,
+            LiquidRevealRoute(
+              page: DetailsPage(movie: movie),
+              tapPosition: null, // Let it center if tapPosition not easily available
+            ),
+          );
+        };
+
+    return DpadFocus(
+      radius: 16,
+      onPressed: onActivate,
+      child: MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) {
         setState(() {
@@ -121,16 +136,7 @@ class _MovieCardState extends State<MovieCard> {
             _pressed = false;
           });
         },
-        onTap: widget.onTap ??
-            () {
-              Navigator.push(
-                context,
-                LiquidRevealRoute(
-                  page: DetailsPage(movie: movie),
-                  tapPosition: null, // Let it center if tapPosition not easily available
-                ),
-              );
-            },
+        onTap: onActivate,
         child: AnimatedScale(
           duration: const Duration(milliseconds: 170),
           curve: Curves.easeOutCubic,
@@ -200,7 +206,8 @@ class _MovieCardState extends State<MovieCard> {
                     ),
                   ],
                 ),
-              ],
+],
+              ),
             ),
           ),
         ),

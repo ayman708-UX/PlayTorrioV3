@@ -9,6 +9,7 @@ import '../../models/movie/movie_detail.dart';
 import '../../models/movie/movie_section.dart';
 import '../../pages/catalog/catalog_page.dart';
 import '../../utils/route_transitions.dart';
+import '../common/dpad_focus.dart';
 import './movie_card.dart';
 import '../common/section_header.dart';
 
@@ -124,22 +125,29 @@ class _MovieSliderSectionState extends State<MovieSliderSection> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  ListView.separated(
+                  // Eagerly built row so every card is a D-pad focus target
+                  // (no lazy building that would hide off-screen cards from
+                  // arrow-key navigation).
+                  SingleChildScrollView(
                     clipBehavior: Clip.none,
                     controller: _scrollController,
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.symmetric(horizontal: sizing.sidePadding),
-                    itemCount: widget.section.movies.length,
-                    separatorBuilder: (context, index) {
-                      return SizedBox(width: sizing.spacing);
-                    },
-                    itemBuilder: (context, index) {
-                      return SizedBox(
-                        width: sizing.cardWidth,
-                        child: MovieCard(movie: widget.section.movies[index]),
-                      );
-                    },
+                    padding:
+                        EdgeInsets.symmetric(horizontal: sizing.sidePadding),
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < widget.section.movies.length; i++) ...[
+                          if (i > 0) SizedBox(width: sizing.spacing),
+                          SizedBox(
+                            width: sizing.cardWidth,
+                            child: MovieCard(
+                              movie: widget.section.movies[i],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                   
                   // Desktop Scroll Arrows
@@ -152,9 +160,13 @@ class _MovieSliderSectionState extends State<MovieSliderSection> {
                       top: 0,
                       bottom: 0,
                       child: Center(
-                        child: _SliderArrow(
-                          icon: Icons.arrow_back_ios_new_rounded,
-                          onTap: () => _scroll(-1),
+                        child: DpadFocus(
+                          radius: 24,
+                          onPressed: () => _scroll(-1),
+                          child: _SliderArrow(
+                            icon: Icons.arrow_back_ios_new_rounded,
+                            onTap: () => _scroll(-1),
+                          ),
                         ),
                       ),
                     ),
@@ -167,9 +179,13 @@ class _MovieSliderSectionState extends State<MovieSliderSection> {
                       top: 0,
                       bottom: 0,
                       child: Center(
-                        child: _SliderArrow(
-                          icon: Icons.arrow_forward_ios_rounded,
-                          onTap: () => _scroll(1),
+                        child: DpadFocus(
+                          radius: 24,
+                          onPressed: () => _scroll(1),
+                          child: _SliderArrow(
+                            icon: Icons.arrow_forward_ios_rounded,
+                            onTap: () => _scroll(1),
+                          ),
                         ),
                       ),
                     ),
