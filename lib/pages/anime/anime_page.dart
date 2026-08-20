@@ -371,6 +371,16 @@ class _AnimePageState extends State<AnimePage> {
                 onTap: () {},
               ),
               DockItem(
+                icon: Icons.extension_rounded,
+                label: 'Addons',
+                onTap: () {},
+              ),
+              DockItem(
+                icon: Icons.download_rounded,
+                label: 'Downloads',
+                onTap: () {},
+              ),
+              DockItem(
                 icon: Icons.favorite_rounded,
                 label: 'My List',
                 onTap: () {

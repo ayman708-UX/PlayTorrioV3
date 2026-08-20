@@ -397,6 +397,81 @@ class AnimeRelation {
   }
 }
 
+class AnimeEpisode {
+  final int number;
+  final String title;
+  final String thumbnail;
+  final String description;
+  final bool isFiller;
+
+  const AnimeEpisode({
+    required this.number,
+    this.title = '',
+    this.thumbnail = '',
+    this.description = '',
+    this.isFiller = false,
+  });
+
+  String get displayTitle {
+    if (title.isNotEmpty && title != 'Episode $number') {
+      return 'EP $number: $title';
+    }
+    return 'Episode $number';
+  }
+}
+
+class AnimeStreamSubtitle {
+  final String url;
+  final String lang;
+  final String label;
+
+  const AnimeStreamSubtitle({
+    required this.url,
+    required this.lang,
+    required this.label,
+  });
+}
+
+class AnimeStreamQuality {
+  final String quality; // '1080p', '720p', '480p', '360p', 'auto', 'default'
+  final String url;
+  final bool isM3U8;
+
+  const AnimeStreamQuality({
+    required this.quality,
+    required this.url,
+    this.isM3U8 = true,
+  });
+}
+
+class AnimeStreamResult {
+  final String streamUrl; // Main playlist or direct stream
+  final bool isM3U8;
+  final List<AnimeStreamQuality> qualities;
+  final List<AnimeStreamSubtitle> subtitles;
+  final Map<String, String> headers;
+  final String serverName;
+  final bool isDub;
+  final int? introStart;
+  final int? introEnd;
+  final int? outroStart;
+  final int? outroEnd;
+
+  const AnimeStreamResult({
+    required this.streamUrl,
+    this.isM3U8 = true,
+    this.qualities = const [],
+    this.subtitles = const [],
+    this.headers = const {},
+    this.serverName = 'Miruro',
+    this.isDub = false,
+    this.introStart,
+    this.introEnd,
+    this.outroStart,
+    this.outroEnd,
+  });
+}
+
 enum AnimeWatchStatus {
   watching,
   planToWatch,

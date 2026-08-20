@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/anime/anime_media.dart';
 import '../../models/stream/stream_model.dart';
 import '../../services/anime/anime_scraper_service.dart';
+import '../../services/anime/anime_stream_service.dart';
 import '../player/player_screen.dart';
 
 class AnimeStreamSheet extends StatefulWidget {
@@ -99,15 +100,47 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
     );
   }
 
-  void _playSource(StreamSource source) {
+  Future<void> _playSource(StreamSource source) async {
     final detail = AnimeScraperService.toMovieDetail(widget.anime);
     final video = AnimeScraperService.toVideo(widget.anime, widget.episodeNumber);
+
+    // Enrich playback with the stream resolver: provider headers (Referer/
+    // Origin), subtitle tracks, and AniSkip intro/outro times when available.
+    final resolved = await AnimeStreamService.instance.getEpisodeStream(
+      anime: widget.anime,
+      episodeNumber: widget.episodeNumber,
+      isDub: widget.isDub,
+    );
+
+    final enriched = StreamSource(
+      name: source.name,
+      title: source.title,
+      url: source.url,
+      description: source.description,
+      addonName: source.addonName,
+      headers: {
+        ...?source.headers,
+        ...?resolved?.headers,
+      },
+      behaviorHints: {
+        ...?source.behaviorHints,
+        if (resolved != null) 'animeStream': {
+          if (resolved.introStart != null) 'introStart': resolved.introStart,
+          if (resolved.introEnd != null) 'introEnd': resolved.introEnd,
+          if (resolved.outroStart != null) 'outroStart': resolved.outroStart,
+          if (resolved.outroEnd != null) 'outroEnd': resolved.outroEnd,
+          'subtitles': resolved.subtitles
+              .map((s) => {'url': s.url, 'lang': s.lang, 'label': s.label})
+              .toList(),
+        },
+      },
+    );
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
-          source: source,
+          source: enriched,
           title: '${widget.anime.displayTitle} - Episode ${widget.episodeNumber}',
           backdropUrl: widget.anime.backdropUrl,
           detail: detail,

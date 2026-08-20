@@ -234,6 +234,40 @@ class AnilistService {
     return _parseMediaList(data);
   }
 
+  /// Search Anime
+  Future<List<AnimeMedia>> searchAnime(
+    String search, {
+    String? genre,
+    String? format,
+    String? status,
+    int page = 1,
+    int perPage = 25,
+  }) async {
+    const query = '''
+      query (\$page: Int, \$perPage: Int, \$search: String, \$genre: String, \$format: MediaFormat, \$status: MediaStatus) {
+        Page(page: \$page, perPage: \$perPage) {
+          media(type: ANIME, search: \$search, genre: \$genre, format: \$format, status: \$status, sort: [POPULARITY_DESC, SEARCH_MATCH], isAdult: false) {
+            $_mediaFields
+          }
+        }
+      }
+    ''';
+
+    final variables = <String, dynamic>{
+      'page': page,
+      'perPage': perPage,
+      if (search.trim().isNotEmpty) 'search': search.trim(),
+      if (genre != null && genre.isNotEmpty && genre != 'All') 'genre': genre,
+      if (format != null && format.isNotEmpty && format != 'All')
+        'format': format.toUpperCase(),
+      if (status != null && status.isNotEmpty && status != 'All')
+        'status': status.toUpperCase(),
+    };
+
+    final data = await _postGraphQL(query, variables);
+    return _parseMediaList(data);
+  }
+
   /// Full Anime Details (Including Voice Actors/Characters, Relations, Recommendations)
   Future<AnimeMedia?> fetchAnimeDetails(int anilistId) async {
     const query = '''

@@ -184,14 +184,6 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
 
-              // ── Liquid Dock Navbar (visible on every tab) ──
-              Positioned(
-                bottom: 24,
-                left: 0,
-                right: 0,
-                child: Center(child: _buildDock()),
-              ),
-
               // ── Intro Splash Screen (home tab only) ──
               if (tabIndex == TabNav.home) _buildIntroOverlay(context),
             ],
@@ -260,6 +252,14 @@ class _HomePageState extends State<HomePage> {
           bottom: 40,
           child: _CustomScrollTrack(controller: _scrollController),
         ),
+
+      // ── Liquid Dock Navbar (inside the liquid glass view so it refracts) ──
+      Positioned(
+        bottom: 24,
+        left: 0,
+        right: 0,
+        child: Center(child: _buildDock()),
+      ),
     ];
 
     return ValueListenableBuilder<bool>(
