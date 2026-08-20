@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import '../../models/download/download_item.dart';
 import '../../models/movie/movie.dart';
 import '../../models/my_list/my_list_item.dart';
+import '../../models/playback/playback_history_item.dart';
 import '../../services/download/download_service.dart';
 import '../../services/my_list/my_list_service.dart';
+import '../../services/playback/playback_history_service.dart';
 import '../../services/trakt/trakt_auth_service.dart';
 import '../../services/trakt/trakt_sync_service.dart';
 import '../../utils/route_transitions.dart';
@@ -37,7 +39,7 @@ class _CollectionPageState extends State<CollectionPage>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 3,
+      length: 4,
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
@@ -200,11 +202,12 @@ class _CollectionPageState extends State<CollectionPage>
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white54,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
           tabs: const [
-            Tab(icon: Icon(Icons.favorite_rounded, size: 18), text: 'My List'),
-            Tab(icon: Icon(Icons.bookmark_rounded, size: 18), text: 'Watchlist'),
-            Tab(icon: Icon(Icons.download_rounded, size: 18), text: 'Downloads'),
+            Tab(icon: Icon(Icons.favorite_rounded, size: 17), text: 'My List'),
+            Tab(icon: Icon(Icons.bookmark_rounded, size: 17), text: 'Watchlist'),
+            Tab(icon: Icon(Icons.history_rounded, size: 17), text: 'History'),
+            Tab(icon: Icon(Icons.download_rounded, size: 17), text: 'Downloads'),
           ],
         ),
       ),
@@ -215,6 +218,7 @@ class _CollectionPageState extends State<CollectionPage>
             children: [
               _buildMyListTab(),
               _buildWatchlistTab(),
+              _buildHistoryTab(),
               _buildDownloadsTab(),
             ],
           ),
@@ -276,6 +280,105 @@ class _CollectionPageState extends State<CollectionPage>
                   : _buildGrid(items),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryTab() {
+    return ValueListenableBuilder<List<PlaybackHistoryItem>>(
+      valueListenable: PlaybackHistoryService.history,
+      builder: (context, historyItems, _) {
+        if (historyItems.isEmpty) {
+          return _buildEmptyState(
+            icon: Icons.history_rounded,
+            title: 'No Playback History',
+            subtitle: 'Movies and episodes you watch will appear here so you can continue where you left off.',
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          itemCount: historyItems.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final item = historyItems[index];
+            final progressPercent = (item.progressPercentage * 100).toInt();
+
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF12151E),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: item.poster != null
+                        ? CachedNetworkImage(
+                            imageUrl: item.poster!,
+                            width: 50,
+                            height: 75,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => Container(
+                              width: 50,
+                              height: 75,
+                              color: Colors.white10,
+                              child: const Icon(Icons.movie_rounded, color: Colors.white30),
+                            ),
+                          )
+                        : Container(
+                            width: 50,
+                            height: 75,
+                            color: Colors.white10,
+                            child: const Icon(Icons.movie_rounded, color: Colors.white30),
+                          ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (item.episodeTitle != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'S${item.seasonNumber ?? 1} E${item.episodeNumber ?? 1} • ${item.episodeTitle!}',
+                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value: item.progressPercentage,
+                          backgroundColor: Colors.white10,
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF7C5CFF)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$progressPercent% completed',
+                          style: const TextStyle(color: Colors.white38, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white38, size: 20),
+                    onPressed: () => PlaybackHistoryService.removeProgress(item.id),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

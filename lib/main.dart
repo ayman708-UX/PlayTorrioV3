@@ -10,6 +10,7 @@ import './services/debrid/debrid_service.dart';
 import './services/download/download_service.dart';
 import './services/glass_settings.dart';
 import './services/my_list/my_list_service.dart';
+import './services/playback/playback_history_service.dart';
 import './services/trakt/trakt_auth_service.dart';
 import './services/trakt/trakt_sync_service.dart';
 import './widgets/update_dialog.dart';
@@ -26,6 +27,7 @@ void main() async {
     DownloadService.initialize(),
     GlassSettings.initialize(),
     MyListService.initialize(),
+    PlaybackHistoryService.initialize(),
     TraktAuthService().initialize(),
     TraktSyncService.initialize(),
   ]);

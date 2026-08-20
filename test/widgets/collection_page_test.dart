@@ -24,6 +24,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('My List'), findsWidgets);
       expect(find.text('Watchlist'), findsWidgets);
+      expect(find.text('History'), findsWidgets);
       expect(find.text('Downloads'), findsWidgets);
       expect(find.text('Your list is empty'), findsOneWidget);
     });
@@ -48,7 +49,7 @@ void main() {
         createdAt: DateTime.now(),
       ));
 
-      await tester.pumpWidget(wrap(const CollectionPage(initialTabIndex: 2)));
+      await tester.pumpWidget(wrap(const CollectionPage(initialTabIndex: 3)));
       await tester.pumpAndSettle();
       expect(find.text('Cyberpunk Edgerunners'), findsOneWidget);
       expect(find.text('DOWNLOADING • 50%'), findsOneWidget);
