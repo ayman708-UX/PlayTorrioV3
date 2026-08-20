@@ -6,6 +6,7 @@ import 'package:fvp/fvp.dart' as fvp;
 import './pages/home/home_page.dart';
 import './services/addon/addon_manager.dart';
 import './services/app_updater_service.dart';
+import './services/debrid/debrid_service.dart';
 import './services/download/download_service.dart';
 import './services/glass_settings.dart';
 import './services/my_list/my_list_service.dart';
@@ -21,6 +22,7 @@ void main() async {
   fvp.registerWith();
   await Future.wait([
     AddonManager.instance.initialize(),
+    DebridService.instance.initialize(),
     DownloadService.initialize(),
     GlassSettings.initialize(),
     MyListService.initialize(),
