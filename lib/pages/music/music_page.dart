@@ -11,6 +11,7 @@ import '../../models/music/music_track.dart';
 import '../../services/music/music_service.dart';
 import '../../services/music/music_player_controller.dart';
 import '../../services/music/music_library_service.dart';
+import '../../widgets/common/app_dock.dart';
 import '../../widgets/common/performance_liquid_lens.dart';
 import '../../widgets/common/slider_arrow.dart';
 import '../settings/settings_page.dart';
@@ -890,6 +891,9 @@ class _MusicPageState extends State<MusicPage> {
                   ),
                 ),
               ),
+
+            // Persistent Hub Navigation Dock
+            const AppDock(currentHub: AppHub.music),
           ],
         ),
       ),

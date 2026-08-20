@@ -441,34 +441,60 @@ class _GlassAppBar extends StatelessWidget {
                 );
               },
             ),
-            const Spacer(),
-            // Search
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  icon: Icon(
-                    Icons.search_rounded,
-                    color: Colors.white.withValues(alpha: 0.65),
-                    size: 25,
-                  ),
-                  onPressed: () {
-                    final box = context.findRenderObject() as RenderBox?;
-                    final offset = box != null
-                        ? box.localToGlobal(box.size.center(Offset.zero))
-                        : null;
-                    onSearchTap(offset);
-                  },
-                );
-              },
+            // Search Bar (Open and clickable on top)
+            Expanded(
+              child: Builder(
+                builder: (context) {
+                  return GestureDetector(
+                    onTap: () {
+                      final box = context.findRenderObject() as RenderBox?;
+                      final offset = box != null
+                          ? box.localToGlobal(box.size.center(Offset.zero))
+                          : null;
+                      onSearchTap(offset);
+                    },
+                    child: Container(
+                      height: 38,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141824).withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Search movies, series, anime...',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.4),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-            // Settings
+            const SizedBox(width: 10),
+            // Settings Icon
             Builder(
               builder: (context) {
                 return IconButton(
                   icon: Icon(
                     Icons.settings_rounded,
                     color: Colors.white.withValues(alpha: 0.65),
-                    size: 24,
+                    size: 22,
                   ),
                   onPressed: () {
                     final box = context.findRenderObject() as RenderBox?;

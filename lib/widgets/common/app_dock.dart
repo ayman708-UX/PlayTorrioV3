@@ -5,6 +5,7 @@ import '../../pages/collection/collection_page.dart';
 import '../../pages/home/home_page.dart';
 import '../../pages/manga/manga_page.dart';
 import '../../pages/music/music_page.dart';
+import '../../pages/settings/settings_page.dart';
 import '../../utils/route_transitions.dart';
 import 'liquid_dock.dart';
 
@@ -14,6 +15,7 @@ enum AppHub {
   audiobooks,
   music,
   collection,
+  settings,
 }
 
 class AppDock extends StatelessWidget {
@@ -26,6 +28,17 @@ class AppDock extends StatelessWidget {
 
   void _navigateTo(BuildContext context, AppHub targetHub) {
     if (targetHub == currentHub) return;
+
+    if (targetHub == AppHub.settings) {
+      Navigator.push(
+        context,
+        LiquidRevealRoute(
+          page: const SettingsPage(),
+          tapPosition: null,
+        ),
+      );
+      return;
+    }
 
     Widget page;
     switch (targetHub) {
@@ -43,6 +56,9 @@ class AppDock extends StatelessWidget {
         break;
       case AppHub.collection:
         page = const CollectionPage();
+        break;
+      case AppHub.settings:
+        page = const SettingsPage();
         break;
     }
 
@@ -88,6 +104,11 @@ class AppDock extends StatelessWidget {
               icon: Icons.video_library_rounded,
               label: 'Collection',
               onTap: () => _navigateTo(context, AppHub.collection),
+            ),
+            DockItem(
+              icon: Icons.settings_rounded,
+              label: 'Settings',
+              onTap: () => _navigateTo(context, AppHub.settings),
             ),
           ],
         ),
