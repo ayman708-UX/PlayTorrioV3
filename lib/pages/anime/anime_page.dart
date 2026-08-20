@@ -10,10 +10,7 @@ import '../../services/glass_settings.dart';
 import '../../utils/route_transitions.dart';
 import '../../widgets/anime/anime_slider_section.dart';
 import '../../widgets/common/liquid_dock.dart';
-import '../audiobooks/audiobooks_page.dart';
-import '../manga/manga_page.dart';
-import '../music/music_page.dart';
-import '../my_list/my_list_page.dart';
+import '../collection/collection_page.dart';
 import '../search/search_page.dart';
 import '../settings/settings_page.dart';
 import 'anime_details_modal.dart';
@@ -321,8 +318,8 @@ class _AnimePageState extends State<AnimePage> {
           child: LiquidDock(
             items: [
               DockItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
+                icon: Icons.movie_filter_rounded,
+                label: 'Media',
                 onTap: () => Navigator.pop(context),
               ),
               DockItem(
@@ -365,42 +362,17 @@ class _AnimePageState extends State<AnimePage> {
                 },
               ),
               DockItem(
-                icon: Icons.animation_rounded,
-                label: 'Anime',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.extension_rounded,
-                label: 'Addons',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.download_rounded,
-                label: 'Downloads',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.favorite_rounded,
-                label: 'My List',
+                icon: Icons.video_library_rounded,
+                label: 'Collection',
                 onTap: () {
                   Navigator.pushReplacement(
                     context,
                     LiquidRevealRoute(
-                      page: const MyListPage(),
+                      page: const CollectionPage(),
                       tapPosition: null,
                     ),
                   );
                 },
-              ),
-              DockItem(
-                icon: Icons.settings_rounded,
-                label: 'Settings',
-                onTap: () => _navigateToSettings(null),
-              ),
-              DockItem(
-                icon: Icons.search_rounded,
-                label: 'Search',
-                onTap: () => _navigateToSearch(null),
               ),
             ],
           ),

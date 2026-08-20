@@ -15,13 +15,13 @@ import '../../services/glass_settings.dart';
 import '../../utils/route_transitions.dart';
 import '../../widgets/common/error_view.dart';
 import '../../widgets/movie/movie_slider_section.dart';
+import '../collection/collection_page.dart';
 import '../search/search_page.dart';
 import '../settings/settings_page.dart';
 import '../manga/manga_page.dart';
 import '../audiobooks/audiobooks_page.dart';
 import '../music/music_page.dart';
 import '../anime/anime_page.dart';
-import '../my_list/my_list_page.dart';
 
 import '../../widgets/common/liquid_dock.dart';
 import '../../services/app_updater_service.dart';
@@ -229,6 +229,15 @@ class _HomePageState extends State<HomePage> {
           topPadding: topPadding,
           onSearchTap: _navigateToSearch,
           onSettingsTap: _navigateToSettings,
+          onAnimeTap: (tapPosition) {
+            Navigator.push(
+              context,
+              LiquidRevealRoute(
+                page: const AnimePage(),
+                tapPosition: tapPosition,
+              ),
+            );
+          },
         ),
       ),
 
@@ -248,7 +257,11 @@ class _HomePageState extends State<HomePage> {
         child: Center(
           child: LiquidDock(
             items: [
-              DockItem(icon: Icons.home_rounded, label: 'Home', onTap: () {}),
+              DockItem(
+                icon: Icons.movie_filter_rounded,
+                label: 'Media',
+                onTap: () {},
+              ),
               DockItem(
                 icon: Icons.auto_stories_rounded,
                 label: 'Manga',
@@ -270,8 +283,7 @@ class _HomePageState extends State<HomePage> {
                     context,
                     LiquidRevealRoute(
                       page: const AudiobooksPage(),
-                      tapPosition:
-                          null, // Liquid reveal transition from center/dock
+                      tapPosition: null,
                     ),
                   );
                 },
@@ -290,60 +302,17 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
               DockItem(
-                icon: Icons.animation_rounded,
-                label: 'Anime',
+                icon: Icons.video_library_rounded,
+                label: 'Collection',
                 onTap: () {
                   Navigator.push(
                     context,
                     LiquidRevealRoute(
-                      page: const AnimePage(),
+                      page: const CollectionPage(),
                       tapPosition: null,
                     ),
                   );
                 },
-              ),
-              DockItem(
-                icon: Icons.extension_rounded,
-                label: 'Addons',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.download_rounded,
-                label: 'Downloads',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.favorite_rounded,
-                label: 'My List',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MyListPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.bookmark_rounded,
-                label: 'Watchlist',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.settings_rounded,
-                label: 'Settings',
-                onTap: () => _navigateToSettings(null),
-              ),
-              DockItem(
-                icon: Icons.person_rounded,
-                label: 'Profile',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.search_rounded,
-                label: 'Search',
-                onTap: () => _navigateToSearch(null),
               ),
             ],
           ),
@@ -446,11 +415,13 @@ class _GlassAppBar extends StatelessWidget {
   final double topPadding;
   final void Function(Offset?) onSearchTap;
   final void Function(Offset?) onSettingsTap;
+  final void Function(Offset?)? onAnimeTap;
 
   const _GlassAppBar({
     required this.topPadding,
     required this.onSearchTap,
     required this.onSettingsTap,
+    this.onAnimeTap,
   });
 
   @override
@@ -491,6 +462,50 @@ class _GlassAppBar extends StatelessWidget {
                 letterSpacing: -0.5,
                 color: Colors.white,
               ),
+            ),
+            const SizedBox(width: 14),
+            // Anime shortcut chip within Media
+            Builder(
+              builder: (context) {
+                return GestureDetector(
+                  onTap: () {
+                    final box = context.findRenderObject() as RenderBox?;
+                    final offset = box != null
+                        ? box.localToGlobal(box.size.center(Offset.zero))
+                        : null;
+                    if (onAnimeTap != null) onAnimeTap!(offset);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C5CFF).withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF7C5CFF).withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.animation_rounded,
+                          size: 15,
+                          color: Color(0xFF7C5CFF),
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Anime',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
             const Spacer(),
             // Search
