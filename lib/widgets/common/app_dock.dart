@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../pages/anime/anime_page.dart';
+import '../../pages/audiobooks/audiobooks_page.dart';
+import '../../pages/collection/collection_page.dart';
+import '../../pages/home/home_page.dart';
+import '../../pages/manga/manga_page.dart';
+import '../../pages/music/music_page.dart';
 import '../../utils/route_transitions.dart';
-import '../anime/anime_page.dart';
-import '../audiobooks/audiobooks_page.dart';
-import '../collection/collection_page.dart';
-import '../home/home_page.dart';
-import '../manga/manga_page.dart';
-import '../music/music_page.dart';
 import 'liquid_dock.dart';
 
 enum AppHub {

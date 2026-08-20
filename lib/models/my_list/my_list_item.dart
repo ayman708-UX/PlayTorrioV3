@@ -10,6 +10,7 @@ class MyListItem {
   final String? poster;
   final DateTime addedAt;
   final MyListSource source;
+  final bool isWatchlist;
 
   const MyListItem({
     this.traktId,
@@ -21,6 +22,7 @@ class MyListItem {
     this.poster,
     required this.addedAt,
     this.source = MyListSource.local,
+    this.isWatchlist = false,
   });
 
   String get uniqueKey {
@@ -102,6 +104,7 @@ class MyListItem {
       'poster': poster,
       'addedAt': addedAt.toIso8601String(),
       'source': source.name,
+      'isWatchlist': isWatchlist,
     };
   }
 
@@ -118,6 +121,7 @@ class MyListItem {
           ? DateTime.tryParse(json['addedAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
       source: json['source'] == 'trakt' ? MyListSource.trakt : MyListSource.local,
+      isWatchlist: json['isWatchlist'] as bool? ?? false,
     );
   }
 

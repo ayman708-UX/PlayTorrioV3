@@ -27,6 +27,7 @@ At application startup (`void main()`):
 2. **Native Plugin Registration:** `fvp.registerWith()` registers the hardware-accelerated video decoding engine.
 3. **Core Asynchronous Services:** Initialized in parallel using `Future.wait`:
    - `AddonManager.instance.initialize()`: Loads scrapers and addon manifests.
+   - `DebridService.instance.initialize()`: Restores configured Debrid accounts (Real-Debrid & Torbox).
    - `DownloadService.initialize()`: Restores persistent download tasks and queued state.
    - `GlassSettings.initialize()`: Pre-configures GPU liquid glass shader toggles.
    - `MyListService.initialize()`: Loads saved items and local favorites.
@@ -45,15 +46,18 @@ At application startup (`void main()`):
 * Consolidates movie, series, anime, and manga metadata.
 * Fetches from TMDB, AniList, and Stremio-compatible endpoints to populate `MovieDetail`, `CastMember`, `CrewMember`, `Genres`, and `Videos`.
 
-### 3.3 Playback Engine & Subtitles (`lib/pages/player/`, `libass_plugin/`, `lib/services/subtitles/`)
+### 3.3 Debrid Integration (`lib/services/debrid/`)
+* **Instant Cloud Streaming:** Connects with Real-Debrid and Torbox APIs to convert torrent hashes into high-speed direct CDN streams without depending on peer availability.
+
+### 3.4 Playback Engine & Subtitles (`lib/pages/player/`, `libass_plugin/`, `lib/services/subtitles/`)
 * **Player:** Backed by `FVP` for smooth HLS, MP4, and torrent stream playback.
 * **ASS/SSA Subtitles:** Powered by `libass_plugin` for styling and positioning complex subtitle files (essential for anime fansubs).
 * **Subtitle Providers:** Automatic fetching and extraction via `SubDL` and built-in extractors.
 
-### 3.4 Persistence & Cloud Synchronization (`lib/services/trakt/`, `lib/services/my_list/`)
-* **Local Storage:** `MyListService` and `DownloadService` persist state in `SharedPreferences` with JSON serialization.
+### 3.5 Persistence & Cloud Synchronization (`lib/services/trakt/`, `lib/services/my_list/`, `lib/services/download/`)
+* **Local Storage:** `MyListService`, `DownloadService`, and `DebridService` persist state in `SharedPreferences` with JSON serialization.
 * **Bidirectional Sync:** Trakt integration pushes and pulls watch states, history, and user lists across devices.
 
-### 3.5 UI Layer & Fluid Motion
-* **LiquidDock:** Bottom dock navigation featuring liquid lens refraction and jelly physics, pre-warmed during intro to eliminate jank.
+### 3.6 UI Architecture & Navigation Hubs (`lib/widgets/common/app_dock.dart`)
+* **AppDock:** Unified persistent dock component maintaining navigation across all primary hubs (`Media`, `Manga`, `Audiobooks`, `Music`, `Collection`).
 * **LiquidRevealRoute:** Custom circular-reveal transitions for seamless navigation across hubs.

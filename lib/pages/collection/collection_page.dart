@@ -186,7 +186,7 @@ class _CollectionPageState extends State<CollectionPage>
                             color: Color(0xFFED1C24),
                             size: 22,
                           ),
-                    onPressed: syncing ? null : () => TraktSyncService.syncAll(),
+                    onPressed: syncing ? null : () => TraktSyncService.manualSync(),
                   );
                 },
               );
