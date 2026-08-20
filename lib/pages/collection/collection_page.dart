@@ -9,6 +9,7 @@ import '../../services/my_list/my_list_service.dart';
 import '../../services/trakt/trakt_auth_service.dart';
 import '../../services/trakt/trakt_sync_service.dart';
 import '../../utils/route_transitions.dart';
+import '../../widgets/common/app_dock.dart';
 import '../details/details_page.dart';
 
 class CollectionPage extends StatefulWidget {
@@ -207,12 +208,17 @@ class _CollectionPageState extends State<CollectionPage>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Stack(
         children: [
-          _buildMyListTab(),
-          _buildWatchlistTab(),
-          _buildDownloadsTab(),
+          TabBarView(
+            controller: _tabController,
+            children: [
+              _buildMyListTab(),
+              _buildWatchlistTab(),
+              _buildDownloadsTab(),
+            ],
+          ),
+          const AppDock(currentHub: AppHub.collection),
         ],
       ),
     );

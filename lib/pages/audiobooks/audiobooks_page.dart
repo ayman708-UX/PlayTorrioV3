@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../models/audiobook/audiobook_model.dart';
 import '../../services/audiobook/audiobook_progress_service.dart';
 import '../../services/audiobook/audiobook_scraper_service.dart';
+import '../../widgets/common/app_dock.dart';
 import 'audiobook_detail_page.dart';
 import 'audiobook_player_screen.dart';
 import 'audiobook_route_transitions.dart';
@@ -329,6 +330,9 @@ class _AudiobooksPageState extends State<AudiobooksPage> {
                 ),
             ],
           ),
+
+          // Persistent Bottom Navigation Dock
+          const AppDock(currentHub: AppHub.audiobooks),
         ],
       ),
     );

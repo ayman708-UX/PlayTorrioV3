@@ -13,6 +13,7 @@ import '../../services/addon/addon_manager.dart';
 import '../../services/metadata/metadata_service.dart';
 import '../../services/glass_settings.dart';
 import '../../utils/route_transitions.dart';
+import '../../widgets/common/app_dock.dart';
 import '../../widgets/common/error_view.dart';
 import '../../widgets/movie/movie_slider_section.dart';
 import '../collection/collection_page.dart';
@@ -250,74 +251,7 @@ class _HomePageState extends State<HomePage> {
         ),
 
       // ── Liquid Dock Navbar ──
-      Positioned(
-        bottom: 24,
-        left: 0,
-        right: 0,
-        child: Center(
-          child: LiquidDock(
-            items: [
-              DockItem(
-                icon: Icons.movie_filter_rounded,
-                label: 'Media',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.auto_stories_rounded,
-                label: 'Manga',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MangaPage(),
-                      tapPosition: null, // Reveals from center
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.headphones_rounded,
-                label: 'Audiobooks',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const AudiobooksPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.music_note_rounded,
-                label: 'Music',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MusicPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.video_library_rounded,
-                label: 'Collection',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    LiquidRevealRoute(
-                      page: const CollectionPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      const AppDock(currentHub: AppHub.media),
 
       // ── Intro Splash Screen ──
       Positioned.fill(child: _buildIntroOverlay(context)),

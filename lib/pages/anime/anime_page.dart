@@ -9,6 +9,7 @@ import '../../services/anime/anime_library_service.dart';
 import '../../services/glass_settings.dart';
 import '../../utils/route_transitions.dart';
 import '../../widgets/anime/anime_slider_section.dart';
+import '../../widgets/common/app_dock.dart';
 import '../../widgets/common/liquid_dock.dart';
 import '../collection/collection_page.dart';
 import '../search/search_page.dart';
@@ -310,74 +311,7 @@ class _AnimePageState extends State<AnimePage> {
       ),
 
       // Liquid Dock Navbar (Home Page Style)
-      Positioned(
-        bottom: 24,
-        left: 0,
-        right: 0,
-        child: Center(
-          child: LiquidDock(
-            items: [
-              DockItem(
-                icon: Icons.movie_filter_rounded,
-                label: 'Media',
-                onTap: () => Navigator.pop(context),
-              ),
-              DockItem(
-                icon: Icons.auto_stories_rounded,
-                label: 'Manga',
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MangaPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.headphones_rounded,
-                label: 'Audiobooks',
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    LiquidRevealRoute(
-                      page: const AudiobooksPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.music_note_rounded,
-                label: 'Music',
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MusicPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.video_library_rounded,
-                label: 'Collection',
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    LiquidRevealRoute(
-                      page: const CollectionPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+      const AppDock(currentHub: AppHub.media),
 
       // Anime Details Modal Popup
       if (_activeDetailsModal != null)

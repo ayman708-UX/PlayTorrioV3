@@ -5,6 +5,7 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import '../../models/manga/manga.dart';
 import '../../models/manga/manga_chapter.dart';
 import '../../services/manga/manga_service.dart';
+import '../../widgets/common/app_dock.dart';
 import '../../widgets/common/custom_scroll_track.dart';
 import '../../widgets/manga/manga_card.dart';
 import 'manga_reader_page.dart';
@@ -194,6 +195,9 @@ class _MangaPageState extends State<MangaPage> {
                 bottom: 40,
                 child: CustomScrollTrack(controller: _scrollController),
               ),
+
+            // Bottom Navigation Dock
+            const AppDock(currentHub: AppHub.manga),
           ],
         ),
       ),
