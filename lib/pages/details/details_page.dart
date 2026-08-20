@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/movie/cast_member.dart';
 import '../../models/movie/movie.dart';
 import '../../models/movie/link.dart';
 import '../../models/movie/video.dart';
@@ -452,8 +453,12 @@ class _DetailsPageState extends State<DetailsPage> with SingleTickerProviderStat
                           SizedBox(height: heroHeight - overlap),
                           isDesktop ? _buildDesktopLayout(meta, posterUrl) : _buildMobileLayout(meta, posterUrl),
                           const SizedBox(height: _Space.xl),
-                          if (meta.cast.isNotEmpty) ...[
-                            _buildCastRow(meta.cast),
+                          if (meta.castMembers.isNotEmpty || meta.cast.isNotEmpty) ...[
+                            _buildCastRow(meta),
+                            const SizedBox(height: _Space.xl),
+                          ],
+                          if (meta.directorsList.isNotEmpty || meta.director.isNotEmpty) ...[
+                            _buildDirectorRow(meta),
                             const SizedBox(height: _Space.xl),
                           ],
                           if ((widget.movie.type == 'series' || widget.movie.type == 'anime') && meta.videos.isNotEmpty) ...[
@@ -1038,7 +1043,11 @@ class _DetailsPageState extends State<DetailsPage> with SingleTickerProviderStat
     );
   }
 
-  Widget _buildCastRow(List<String> cast) {
+  Widget _buildCastRow(MovieDetail meta) {
+    final List<CastMember> members = meta.castMembers.isNotEmpty
+        ? meta.castMembers
+        : meta.cast.map((c) => CastMember(name: c)).toList();
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHoveringCast = true),
       onExit: (_) => setState(() => _isHoveringCast = false),
@@ -1047,7 +1056,7 @@ class _DetailsPageState extends State<DetailsPage> with SingleTickerProviderStat
         children: [
           _buildSectionHeader('Cast'),
           SizedBox(
-            height: 132,
+            height: 148,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -1056,17 +1065,18 @@ class _DetailsPageState extends State<DetailsPage> with SingleTickerProviderStat
                   controller: _castScrollController,
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  itemCount: cast.length,
+                  itemCount: members.length,
                   separatorBuilder: (_, __) => const SizedBox(width: _Space.lg),
                   itemBuilder: (context, index) {
-                    final name = cast[index];
+                    final member = members[index];
+                    final name = member.name;
                     final initials = name.isNotEmpty
                         ? name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join('').toUpperCase()
                         : '?';
                     final pair = _Palette.avatarPairs[name.hashCode.abs() % _Palette.avatarPairs.length];
 
                     return SizedBox(
-                      width: 84,
+                      width: 88,
                       child: Column(
                         children: [
                           Builder(
@@ -1090,24 +1100,58 @@ class _DetailsPageState extends State<DetailsPage> with SingleTickerProviderStat
                                     height: 76,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: pair),
+                                      gradient: member.profileUrl == null
+                                          ? LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: pair)
+                                          : null,
                                       border: Border.all(color: Colors.white.withOpacity(0.1), width: 1.5),
                                     ),
+                                    clipBehavior: Clip.antiAlias,
                                     alignment: Alignment.center,
-                                    child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                    child: member.profileUrl != null
+                                        ? CachedNetworkImage(
+                                            imageUrl: member.profileUrl!,
+                                            width: 76,
+                                            height: 76,
+                                            fit: BoxFit.cover,
+                                            placeholder: (_, __) => Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: pair),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                            ),
+                                            errorWidget: (_, __, ___) => Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: pair),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                            ),
+                                          )
+                                        : Text(initials, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
                                   ),
                                 ),
                               );
                             }
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text(
                             name,
                             textAlign: TextAlign.center,
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.2),
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600, height: 1.2),
                           ),
+                          if (member.character != null && member.character!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              member.character!,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white54, fontSize: 10.5, height: 1.1),
+                            ),
+                          ],
                         ],
                       ),
                     );
@@ -1130,6 +1174,116 @@ class _DetailsPageState extends State<DetailsPage> with SingleTickerProviderStat
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDirectorRow(MovieDetail meta) {
+    final List<CrewMember> directors = meta.directorsList.isNotEmpty
+        ? meta.directorsList
+        : meta.director.map((d) => CrewMember(name: d, job: 'Director')).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('Direction'),
+        SizedBox(
+          height: 132,
+          child: ListView.separated(
+            clipBehavior: Clip.none,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: directors.length,
+            separatorBuilder: (_, __) => const SizedBox(width: _Space.lg),
+            itemBuilder: (context, index) {
+              final director = directors[index];
+              final name = director.name;
+              final initials = name.isNotEmpty
+                  ? name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join('').toUpperCase()
+                  : '?';
+              final pair = _Palette.avatarPairs[name.hashCode.abs() % _Palette.avatarPairs.length];
+
+              return SizedBox(
+                width: 88,
+                child: Column(
+                  children: [
+                    Builder(
+                      builder: (context) {
+                        Offset? lastTap;
+                        return GestureDetector(
+                          onTapDown: (d) => lastTap = d.globalPosition,
+                          child: _HoverButton(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                LiquidRevealRoute(
+                                  page: DiscoverPage(query: name, isGenre: false),
+                                  tapPosition: lastTap,
+                                ),
+                              );
+                            },
+                            scaleAmount: 1.05,
+                            child: Container(
+                              width: 76,
+                              height: 76,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: director.profileUrl == null
+                                    ? LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: pair)
+                                    : null,
+                                border: Border.all(color: Colors.white.withOpacity(0.1), width: 1.5),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              alignment: Alignment.center,
+                              child: director.profileUrl != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: director.profileUrl!,
+                                      width: 76,
+                                      height: 76,
+                                      fit: BoxFit.cover,
+                                      placeholder: (_, __) => Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: pair),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                      ),
+                                      errorWidget: (_, __, ___) => Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: pair),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                                      ),
+                                    )
+                                  : Text(initials, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        );
+                      }
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      name,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600, height: 1.2),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      director.job,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white54, fontSize: 10.5, height: 1.1),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
