@@ -8,6 +8,7 @@ import '../audiobooks/audiobooks_page.dart';
 import '../music/music_page.dart';
 import '../collection/collection_page.dart';
 import '../settings/settings_page.dart';
+import '../../utils/route_transitions.dart';
 
 /// HubPage: a top-level container that will host all primary app hubs
 /// (Movies & Series, Anime, Manga, Audiobooks, Music, Collection).
