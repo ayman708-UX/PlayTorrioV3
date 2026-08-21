@@ -25,7 +25,8 @@ import '../my_list/my_list_page.dart';
 
 import '../../widgets/common/liquid_dock.dart';
 import '../../services/app_updater_service.dart';
-import '../../widgets/update_dialog.dart';
+import '../../widgets/iptv/iptv_home_section.dart';
+import '../iptv/iptv_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -191,15 +192,18 @@ class _HomePageState extends State<HomePage> {
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
-              itemCount: _sections.length + 2,
+              itemCount: _sections.length + 3,
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return _HeroCarousel(movies: _featuredMovies);
                 }
-                if (index == _sections.length + 1) {
+                if (index == 1) {
+                  return const IptvHomeSection();
+                }
+                if (index == _sections.length + 2) {
                   return const SizedBox(height: 50);
                 }
-                return MovieSliderSection(section: _sections[index - 1]);
+                return MovieSliderSection(section: _sections[index - 2]);
               },
             ),
           ),
@@ -297,6 +301,19 @@ class _HomePageState extends State<HomePage> {
                     context,
                     LiquidRevealRoute(
                       page: const AnimePage(),
+                      tapPosition: null,
+                    ),
+                  );
+                },
+              ),
+              DockItem(
+                icon: Icons.live_tv_rounded,
+                label: 'Live TV',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    LiquidRevealRoute(
+                      page: const IptvPage(),
                       tapPosition: null,
                     ),
                   );

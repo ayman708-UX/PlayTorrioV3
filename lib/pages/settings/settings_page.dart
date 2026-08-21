@@ -8,6 +8,7 @@ import '../../services/app_updater_service.dart';
 import '../../services/trakt/trakt_auth_service.dart';
 import '../../services/trakt/trakt_sync_service.dart';
 import '../../services/torbox/torbox_service.dart';
+import '../../services/iptv/iptv_epg_settings.dart';
 import '../../widgets/update_dialog.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -256,6 +257,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
           // ── TorBox section ──
           _buildTorBoxSection(),
+          const SizedBox(height: 28),
+
+          // ── IPTV EPG section ──
+          _buildIptvEpgSection(),
           const SizedBox(height: 28),
 
           // ── Section title ──
@@ -656,6 +661,77 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     }
+  }
+
+  Widget _buildIptvEpgSection() {
+    return FutureBuilder<String?>(
+      future: IptvEpgSettings.loadUrl(),
+      builder: (context, snapshot) {
+        final current = snapshot.data ?? '';
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF12151E),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'IPTV TV Guide (XMLTV)',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                current.isEmpty
+                    ? 'Optional XMLTV URL for M3U channel EPG on the Home screen.'
+                    : 'EPG URL configured for starred M3U channels.',
+                style: const TextStyle(color: Colors.white54, fontSize: 12.5, height: 1.35),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final controller = TextEditingController(text: current);
+                    final saved = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: const Color(0xFF151822),
+                        title: const Text('XMLTV EPG URL'),
+                        content: TextField(
+                          controller: controller,
+                          decoration: const InputDecoration(
+                            hintText: 'https://example.com/epg.xml.gz',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (saved == true) {
+                      await IptvEpgSettings.saveUrl(controller.text.trim());
+                      if (mounted) setState(() {});
+                    }
+                  },
+                  icon: const Icon(Icons.schedule_rounded, size: 18),
+                  label: Text(current.isEmpty ? 'Set EPG URL' : 'Update EPG URL'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // ── Add addon flow ──────────────────────────────────────────────────────

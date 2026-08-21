@@ -53,3 +53,4 @@ app.*.map.json
 # Environment and secrets
 .env
 **/secrets.dart
+*.apk
