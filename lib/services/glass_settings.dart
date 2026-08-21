@@ -1,21 +1,32 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-/// Global opt-in for the expensive, fully animated liquid-glass experience.
+import 'dock_theme_settings.dart';
+
+/// Back-compat wrapper: liquid-glass effects are enabled only for that theme.
 abstract final class GlassSettings {
-  static const _preferenceKey = 'full_liquid_glass_enabled';
-
-  static final ValueNotifier<bool> enabled = ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> enabled = _GlassEnabledNotifier();
 
   static Future<void> initialize() async {
-    final preferences = await SharedPreferences.getInstance();
-    enabled.value = preferences.getBool(_preferenceKey) ?? false;
+    await DockThemeSettings.initialize();
   }
 
   static Future<void> setEnabled(bool value) async {
-    if (enabled.value == value) return;
-    enabled.value = value;
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool(_preferenceKey, value);
+    await DockThemeSettings.setTheme(
+      value ? DockTheme.liquidGlass : DockTheme.standard,
+    );
+  }
+}
+
+class _GlassEnabledNotifier extends ValueNotifier<bool> {
+  _GlassEnabledNotifier()
+      : super(DockThemeSettings.theme.value.usesLiquidGlass) {
+    DockThemeSettings.theme.addListener(_sync);
+  }
+
+  void _sync() {
+    final next = DockThemeSettings.theme.value.usesLiquidGlass;
+    if (value != next) {
+      value = next;
+    }
   }
 }

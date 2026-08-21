@@ -12,6 +12,7 @@ import '../details/details_page.dart';
 import '../../services/addon/addon_manager.dart';
 import '../../services/metadata/metadata_service.dart';
 import '../../services/glass_settings.dart';
+import '../../services/dock_theme_settings.dart';
 import '../../utils/route_transitions.dart';
 import '../../widgets/common/error_view.dart';
 import '../../widgets/movie/movie_slider_section.dart';
@@ -371,11 +372,11 @@ class _HomePageState extends State<HomePage> {
       Positioned.fill(child: _buildIntroOverlay(context)),
     ];
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: GlassSettings.enabled,
-      builder: (context, enabled, _) {
+    return ValueListenableBuilder<DockTheme>(
+      valueListenable: DockThemeSettings.theme,
+      builder: (context, theme, _) {
         final overlays = Stack(children: overlayChildren);
-        if (enabled) {
+        if (theme.usesLiquidGlass) {
           return LiquidGlassView(
             realTimeCapture: true,
             useSync: true,

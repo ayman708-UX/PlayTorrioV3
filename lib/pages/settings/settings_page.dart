@@ -3,8 +3,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../models/addon/addon.dart';
 import '../../services/addon/addon_manager.dart';
-import '../../services/glass_settings.dart';
 import '../../services/app_updater_service.dart';
+import '../../services/dock_theme_settings.dart';
 import '../../services/trakt/trakt_auth_service.dart';
 import '../../services/trakt/trakt_sync_service.dart';
 import '../../services/torbox/torbox_service.dart';
@@ -183,68 +183,7 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         children: [
-          ValueListenableBuilder<bool>(
-            valueListenable: GlassSettings.enabled,
-            builder: (context, enabled, _) {
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF12151E),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: enabled
-                        ? const Color(0xFF7C5CFF).withValues(alpha: 0.35)
-                        : Colors.white.withValues(alpha: 0.08),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7C5CFF).withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.blur_on_rounded,
-                        color: Color(0xFF7C5CFF),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Full Liquid Glass',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Real lenses, refraction, jelly and hover effects. Uses more GPU power.',
-                            style: TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12.5,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Switch.adaptive(
-                      value: enabled,
-                      onChanged: GlassSettings.setEnabled,
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+          _buildMenuThemeSection(),
           const SizedBox(height: 28),
 
           // ── App Updates section ──
@@ -450,6 +389,153 @@ class _SettingsPageState extends State<SettingsPage> {
         );
       },
     );
+  }
+
+  // ── Menu theme section ───────────────────────────────────────────────────
+
+  Widget _buildMenuThemeSection() {
+    return ValueListenableBuilder<DockTheme>(
+      valueListenable: DockThemeSettings.theme,
+      builder: (context, selected, _) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF12151E),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF7C5CFF).withValues(alpha: 0.25),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C5CFF).withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.palette_rounded,
+                      color: Color(0xFF7C5CFF),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Menu Theme',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Choose how the bottom dock and menu chrome look.',
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12.5,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...DockTheme.values.map((theme) {
+                final isSelected = theme == selected;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => DockThemeSettings.setTheme(theme),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF7C5CFF)
+                                : Colors.white.withValues(alpha: 0.08),
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                          color: isSelected
+                              ? const Color(0xFF7C5CFF).withValues(alpha: 0.12)
+                              : Colors.white.withValues(alpha: 0.03),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _themeIcon(theme),
+                              color: isSelected
+                                  ? const Color(0xFF7C5CFF)
+                                  : Colors.white54,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    theme.label,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.white70,
+                                    ),
+                                  ),
+                                  Text(
+                                    theme.description,
+                                    style: const TextStyle(
+                                      color: Colors.white38,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: Color(0xFF7C5CFF),
+                                size: 20,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _themeIcon(DockTheme theme) {
+    return switch (theme) {
+      DockTheme.standard => Icons.blur_linear_rounded,
+      DockTheme.liquidGlass => Icons.blur_on_rounded,
+      DockTheme.carbonFiber => Icons.grid_on_rounded,
+      DockTheme.retro90s => Icons.videogame_asset_rounded,
+    };
   }
 
   // ── TorBox section ─────────────────────────────────────────────────────
