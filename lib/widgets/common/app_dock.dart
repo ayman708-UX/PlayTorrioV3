@@ -66,12 +66,17 @@ class AppDock extends StatelessWidget {
         break;
     }
 
-    Navigator.pushReplacement(
+    // Use pushAndRemoveUntil keeping the first route (app root) so the
+    // system/back/pop behavior correctly returns to the Home root instead
+    // of leaving an empty stack (which caused the black screen). Settings
+    // still use a normal push so they behave like a modal overlay.
+    Navigator.pushAndRemoveUntil(
       context,
       LiquidRevealRoute(
         page: page,
         tapPosition: null,
       ),
+      (route) => route.isFirst,
     );
   }
 
