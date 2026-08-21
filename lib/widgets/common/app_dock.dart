@@ -11,6 +11,7 @@ import 'liquid_dock.dart';
 
 enum AppHub {
   media,
+  anime,
   manga,
   audiobooks,
   music,
@@ -44,6 +45,9 @@ class AppDock extends StatelessWidget {
     switch (targetHub) {
       case AppHub.media:
         page = const HomePage();
+        break;
+      case AppHub.anime:
+        page = const AnimePage();
         break;
       case AppHub.manga:
         page = const MangaPage();
@@ -82,8 +86,13 @@ class AppDock extends StatelessWidget {
           items: [
             DockItem(
               icon: Icons.movie_filter_rounded,
-              label: 'Media',
+              label: 'Movies & Series',
               onTap: () => _navigateTo(context, AppHub.media),
+            ),
+            DockItem(
+              icon: Icons.animation_rounded,
+              label: 'Anime',
+              onTap: () => _navigateTo(context, AppHub.anime),
             ),
             DockItem(
               icon: Icons.auto_stories_rounded,

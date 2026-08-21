@@ -311,7 +311,7 @@ class _AnimePageState extends State<AnimePage> {
       ),
 
       // Liquid Dock Navbar (Home Page Style)
-      const AppDock(currentHub: AppHub.media),
+      const AppDock(currentHub: AppHub.anime),
 
       // Anime Details Modal Popup
       if (_activeDetailsModal != null)

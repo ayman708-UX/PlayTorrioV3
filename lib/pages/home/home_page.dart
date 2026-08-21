@@ -230,15 +230,6 @@ class _HomePageState extends State<HomePage> {
           topPadding: topPadding,
           onSearchTap: _navigateToSearch,
           onSettingsTap: _navigateToSettings,
-          onAnimeTap: (tapPosition) {
-            Navigator.push(
-              context,
-              LiquidRevealRoute(
-                page: const AnimePage(),
-                tapPosition: tapPosition,
-              ),
-            );
-          },
         ),
       ),
 
@@ -349,13 +340,11 @@ class _GlassAppBar extends StatelessWidget {
   final double topPadding;
   final void Function(Offset?) onSearchTap;
   final void Function(Offset?) onSettingsTap;
-  final void Function(Offset?)? onAnimeTap;
 
   const _GlassAppBar({
     required this.topPadding,
     required this.onSearchTap,
     required this.onSettingsTap,
-    this.onAnimeTap,
   });
 
   @override
@@ -398,49 +387,6 @@ class _GlassAppBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-            // Anime shortcut chip within Media
-            Builder(
-              builder: (context) {
-                return GestureDetector(
-                  onTap: () {
-                    final box = context.findRenderObject() as RenderBox?;
-                    final offset = box != null
-                        ? box.localToGlobal(box.size.center(Offset.zero))
-                        : null;
-                    if (onAnimeTap != null) onAnimeTap!(offset);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C5CFF).withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF7C5CFF).withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.animation_rounded,
-                          size: 15,
-                          color: Color(0xFF7C5CFF),
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          'Anime',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
             // Search Bar (Open and clickable on top)
             Expanded(
               child: Builder(
