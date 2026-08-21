@@ -14,6 +14,7 @@ import '../../models/playback/playback_history_item.dart';
 import '../../models/stream/stream_model.dart';
 import '../../services/playback/playback_history_service.dart';
 import '../../services/stream/torrent_stream_service.dart';
+import '../../services/trakt/trakt_sync_service.dart';
 import '../../services/glass_settings.dart';
 import '../../widgets/common/performance_liquid_lens.dart';
 import 'package:fvp/fvp.dart';
@@ -210,6 +211,21 @@ class _PlayerScreenState extends State<PlayerScreen>
           lastWatched: DateTime.now(),
         );
         PlaybackHistoryService.saveProgress(historyItem);
+
+        // Scrobble progress to Trakt every 15s or when complete
+        if (pos.inSeconds % 15 == 0 || historyItem.isCompleted) {
+          final progressPercent = (pos.inMilliseconds / dur.inMilliseconds) * 100.0;
+          TraktSyncService.scrobblePlayback(
+            action: historyItem.isCompleted ? 'stop' : 'start',
+            progressPercent: progressPercent,
+            title: widget.detail!.name,
+            imdbId: widget.detail!.id.startsWith('tt') ? widget.detail!.id : null,
+            tmdbId: widget.detail!.tmdbId != null ? int.tryParse(widget.detail!.tmdbId!) : null,
+            season: widget.episode?.season,
+            episode: widget.episode?.episode,
+            type: widget.detail!.type,
+          );
+        }
       }
     }
   }
