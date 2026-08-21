@@ -4,8 +4,8 @@ This document describes basic smoke tests and QA steps for the HubPage navigatio
 
 Windows snapshot
 
-- Artifact (fork release): https://github.com/David7ce/PlayTorrioV3/releases/tag/v3.0.0-hub-snapshot-2026-08-21
-- ZIP: playtorrio-windows-x64-2026-08-21.zip containing playtorrio.exe
+- Release (fork): https://github.com/David7ce/PlayTorrioV3/releases/tag/v3.0.0-hub-snapshot-2026-08-21
+- Full ZIP (recommended): playtorrio-windows-x64-full-2026-08-21.zip — contains playtorrio.exe plus all required DLLs and the data/ flutter_assets folder (use this one to run locally).
 
 Smoke test steps (Windows)
 
