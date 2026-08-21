@@ -15,6 +15,7 @@ import '../../models/movie/movie_detail.dart';
 import '../../models/stream/stream_model.dart';
 import './player_screen.dart';
 import '../../services/stream/stream_service.dart';
+import '../../services/torbox/torbox_service.dart';
 import '../../services/glass_settings.dart';
 import '../../widgets/common/performance_liquid_lens.dart';
 import '../settings/settings_page.dart';
@@ -142,6 +143,29 @@ class _WatchScreenState extends State<WatchScreen>
     setState(() {
       _sources.addAll(batch);
       _isLoadingSources = false;
+    });
+    _enrichTorBoxCacheStatus();
+  }
+
+  Future<void> _enrichTorBoxCacheStatus() async {
+    if (!TorBoxService().isConfigured.value) return;
+
+    final hashes = _sources
+        .where((s) => s.infoHash != null && !s.torboxCached)
+        .map((s) => s.infoHash!)
+        .toList();
+    if (hashes.isEmpty) return;
+
+    final cached = await TorBoxService().checkCachedBatch(hashes);
+    if (!mounted || cached.isEmpty) return;
+
+    setState(() {
+      for (var i = 0; i < _sources.length; i++) {
+        final hash = _sources[i].infoHash?.toLowerCase();
+        if (hash != null && cached.contains(hash)) {
+          _sources[i] = _sources[i].copyWith(torboxCached: true);
+        }
+      }
     });
   }
 
@@ -1237,6 +1261,9 @@ class _SourceCardState extends State<_SourceCard> {
     if (s.isHDR) badges.add(_badge('HDR', const Color(0xFFFFD43B)));
     if (s.codec != null) badges.add(_badge(s.codec!, _C.textTertiary));
     if (s.fileSize != null) badges.add(_badge(s.fileSize!, _C.textTertiary));
+    if (s.torboxCached) {
+      badges.add(_badge('TorBox Instant', const Color(0xFF7C5CFF)));
+    }
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
