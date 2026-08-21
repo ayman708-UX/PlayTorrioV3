@@ -23,14 +23,12 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
   void initState() {
     super.initState();
     IptvFavoritesService.instance.favorites.addListener(_onFavoritesChanged);
-    IptvEpgSettings.showHomeTvGuide.addListener(_onGuideSettingChanged);
     _refreshGuide();
   }
 
   @override
   void dispose() {
     IptvFavoritesService.instance.favorites.removeListener(_onFavoritesChanged);
-    IptvEpgSettings.showHomeTvGuide.removeListener(_onGuideSettingChanged);
     super.dispose();
   }
 
@@ -38,19 +36,7 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
     _refreshGuide();
   }
 
-  void _onGuideSettingChanged() {
-    if (IptvEpgSettings.showHomeTvGuide.value) {
-      _refreshGuide();
-    } else if (mounted) {
-      setState(() {
-        _guide = [];
-        _loadingGuide = false;
-      });
-    }
-  }
-
   Future<void> _refreshGuide() async {
-    if (!IptvEpgSettings.showHomeTvGuide.value) return;
     if (!mounted) return;
     setState(() => _loadingGuide = true);
     await IptvFavoritesService.instance.syncPortalBrowserFavorites();
@@ -101,18 +87,17 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
                           ],
                         ),
                       ),
-                      if (showGuide)
-                        IconButton(
-                          tooltip: 'Refresh guide',
-                          onPressed: _loadingGuide ? null : _refreshGuide,
-                          icon: _loadingGuide
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.refresh_rounded, color: Colors.white54),
-                        ),
+                      IconButton(
+                        tooltip: 'Refresh guide',
+                        onPressed: _loadingGuide ? null : _refreshGuide,
+                        icon: _loadingGuide
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.refresh_rounded, color: Colors.white54),
+                      ),
                       TextButton(
                         onPressed: () => Navigator.push(
                           context,
@@ -132,13 +117,10 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
                     itemBuilder: (context, index) {
                       final channel = favorites[index];
-                      final entry = showGuide && index < _guide.length
-                          ? _guide[index]
-                          : null;
+                      final entry = index < _guide.length ? _guide[index] : null;
                       return _ChannelCard(
                         channel: channel,
                         entry: entry,
-                        showGuide: showGuide,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -229,13 +211,11 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
 class _ChannelCard extends StatelessWidget {
   final IptvFavoriteChannel channel;
   final IptvGuideEntry? entry;
-  final bool showGuide;
   final VoidCallback onTap;
 
   const _ChannelCard({
     required this.channel,
     required this.entry,
-    required this.showGuide,
     required this.onTap,
   });
 
@@ -280,7 +260,7 @@ class _ChannelCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
             ),
-            if (showGuide && entry?.nowTitle != null) ...[
+            if (entry?.nowTitle != null) ...[
               const SizedBox(height: 4),
               Text(
                 entry!.nowTitle!,

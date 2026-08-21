@@ -771,7 +771,7 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 6),
               Text(
                 current.isEmpty
-                    ? 'Optional XMLTV URL for M3U channel EPG when the home guide is enabled.'
+                    ? 'Optional XMLTV URL for M3U channel EPG on favorite cards and the home guide.'
                     : 'EPG URL configured for starred M3U channels.',
                 style: const TextStyle(color: Colors.white54, fontSize: 12.5, height: 1.35),
               ),
@@ -782,11 +782,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   return SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text(
-                      'Show TV guide on Home',
+                      'Show full TV guide on Home',
                       style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                     ),
                     subtitle: const Text(
-                      'Display Now/Next programme info under Live TV favorites.',
+                      'Show the detailed Now/Next list below favorites. Cards always show the current show.',
                       style: TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                     value: enabled,
