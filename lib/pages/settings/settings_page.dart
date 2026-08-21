@@ -771,11 +771,31 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(height: 6),
               Text(
                 current.isEmpty
-                    ? 'Optional XMLTV URL for M3U channel EPG on the Home screen.'
+                    ? 'Optional XMLTV URL for M3U channel EPG when the home guide is enabled.'
                     : 'EPG URL configured for starred M3U channels.',
                 style: const TextStyle(color: Colors.white54, fontSize: 12.5, height: 1.35),
               ),
               const SizedBox(height: 12),
+              ValueListenableBuilder<bool>(
+                valueListenable: IptvEpgSettings.showHomeTvGuide,
+                builder: (context, enabled, _) {
+                  return SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Show TV guide on Home',
+                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                    subtitle: const Text(
+                      'Display Now/Next programme info under Live TV favorites.',
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                    ),
+                    value: enabled,
+                    activeTrackColor: const Color(0xFF7C5CFF),
+                    onChanged: (value) => IptvEpgSettings.setShowHomeTvGuide(value),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import '../../models/iptv/iptv_favorite_channel.dart';
 import '../../pages/iptv/iptv_live_player_page.dart';
 import '../../pages/iptv/iptv_page.dart';
+import '../../services/iptv/iptv_epg_settings.dart';
 import '../../services/iptv/iptv_favorites_service.dart';
 
-/// Home screen row for starred IPTV channels with a compact TV guide.
+/// Home screen row for starred IPTV channels with an optional compact TV guide.
 class IptvHomeSection extends StatefulWidget {
   const IptvHomeSection({super.key});
 
@@ -22,12 +23,14 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
   void initState() {
     super.initState();
     IptvFavoritesService.instance.favorites.addListener(_onFavoritesChanged);
+    IptvEpgSettings.showHomeTvGuide.addListener(_onGuideSettingChanged);
     _refreshGuide();
   }
 
   @override
   void dispose() {
     IptvFavoritesService.instance.favorites.removeListener(_onFavoritesChanged);
+    IptvEpgSettings.showHomeTvGuide.removeListener(_onGuideSettingChanged);
     super.dispose();
   }
 
@@ -35,7 +38,19 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
     _refreshGuide();
   }
 
+  void _onGuideSettingChanged() {
+    if (IptvEpgSettings.showHomeTvGuide.value) {
+      _refreshGuide();
+    } else if (mounted) {
+      setState(() {
+        _guide = [];
+        _loadingGuide = false;
+      });
+    }
+  }
+
   Future<void> _refreshGuide() async {
+    if (!IptvEpgSettings.showHomeTvGuide.value) return;
     if (!mounted) return;
     setState(() => _loadingGuide = true);
     await IptvFavoritesService.instance.syncPortalBrowserFavorites();
@@ -49,105 +64,114 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: IptvFavoritesService.instance.favorites,
-      builder: (context, favorites, _) {
-        if (favorites.isEmpty) {
-          return _emptyPrompt(context);
-        }
+    return ValueListenableBuilder<bool>(
+      valueListenable: IptvEpgSettings.showHomeTvGuide,
+      builder: (context, showGuide, _) {
+        return ValueListenableBuilder(
+          valueListenable: IptvFavoritesService.instance.favorites,
+          builder: (context, favorites, __) {
+            if (favorites.isEmpty) {
+              return _emptyPrompt(context);
+            }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Live TV Favorites',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Starred channels from M3U playlists and IPTV portals',
-                          style: TextStyle(color: Colors.white54, fontSize: 12.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Refresh guide',
-                    onPressed: _loadingGuide ? null : _refreshGuide,
-                    icon: _loadingGuide
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.refresh_rounded, color: Colors.white54),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const IptvPage()),
-                    ),
-                    child: const Text('Manage'),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 118,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: favorites.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
-                itemBuilder: (context, index) {
-                  final channel = favorites[index];
-                  final entry = index < _guide.length ? _guide[index] : null;
-                  return _ChannelCard(
-                    channel: channel,
-                    entry: entry,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => IptvLivePlayerPage(
-                          title: channel.name,
-                          streamUrl: channel.streamUrl,
-                          logoUrl: channel.logoUrl,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Live TV Favorites',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Starred channels from M3U playlists and IPTV portals',
+                              style: TextStyle(color: Colors.white54, fontSize: 12.5),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            if (_guide.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'TV Guide',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white.withValues(alpha: 0.85),
+                      if (showGuide)
+                        IconButton(
+                          tooltip: 'Refresh guide',
+                          onPressed: _loadingGuide ? null : _refreshGuide,
+                          icon: _loadingGuide
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.refresh_rounded, color: Colors.white54),
+                        ),
+                      TextButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const IptvPage()),
+                        ),
+                        child: const Text('Manage'),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              ..._guide.take(6).map((entry) => _GuideRow(entry: entry)),
-            ],
-            const SizedBox(height: 12),
-          ],
+                SizedBox(
+                  height: 118,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: favorites.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final channel = favorites[index];
+                      final entry = showGuide && index < _guide.length
+                          ? _guide[index]
+                          : null;
+                      return _ChannelCard(
+                        channel: channel,
+                        entry: entry,
+                        showGuide: showGuide,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => IptvLivePlayerPage(
+                              title: channel.name,
+                              streamUrl: channel.streamUrl,
+                              logoUrl: channel.logoUrl,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (showGuide && _guide.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'TV Guide',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ..._guide.take(6).map((entry) => _GuideRow(entry: entry)),
+                ],
+                const SizedBox(height: 12),
+              ],
+            );
+          },
         );
       },
     );
@@ -182,7 +206,7 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
                   Text('Live TV', style: TextStyle(fontWeight: FontWeight.w800)),
                   SizedBox(height: 4),
                   Text(
-                    'Add M3U playlists or scrape IPTV portals, then star channels to pin them here with a TV guide.',
+                    'Add M3U playlists or scrape IPTV portals, then star channels to pin them here.',
                     style: TextStyle(color: Colors.white54, fontSize: 12.5, height: 1.35),
                   ),
                 ],
@@ -205,11 +229,13 @@ class _IptvHomeSectionState extends State<IptvHomeSection> {
 class _ChannelCard extends StatelessWidget {
   final IptvFavoriteChannel channel;
   final IptvGuideEntry? entry;
+  final bool showGuide;
   final VoidCallback onTap;
 
   const _ChannelCard({
     required this.channel,
     required this.entry,
+    required this.showGuide,
     required this.onTap,
   });
 
@@ -254,7 +280,7 @@ class _ChannelCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
             ),
-            if (entry?.nowTitle != null) ...[
+            if (showGuide && entry?.nowTitle != null) ...[
               const SizedBox(height: 4),
               Text(
                 entry!.nowTitle!,
