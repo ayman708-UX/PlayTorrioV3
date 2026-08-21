@@ -10,7 +10,9 @@ import 'package:playtorrio/models/subtitle/subtitle_model.dart';
 import 'package:playtorrio/services/subtitles/subtitle_service.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
+import '../../models/playback/playback_history_item.dart';
 import '../../models/stream/stream_model.dart';
+import '../../services/playback/playback_history_service.dart';
 import '../../services/stream/torrent_stream_service.dart';
 import '../../services/glass_settings.dart';
 import '../../widgets/common/performance_liquid_lens.dart';
@@ -133,7 +135,14 @@ class _PlayerScreenState extends State<PlayerScreen>
         cleanUri,
         httpHeaders: playerHeaders,
       );
-      await _controller!.initialize();
+      await _controller!.initialize().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException(
+            'Stream connection timed out after 15 seconds. The host server may be slow or offline.',
+          );
+        },
+      );
 
       print(
         '[PlayerScreen SUCCESS] Video controller initialized successfully for $streamUrl',
@@ -144,6 +153,17 @@ class _PlayerScreenState extends State<PlayerScreen>
         _isLoading = false;
       });
 
+      // Resume from history if previously watched
+      if (widget.detail != null) {
+        final historyItem = PlaybackHistoryService.getProgress(
+          widget.episode?.id ?? widget.detail!.id,
+        );
+        if (historyItem != null && historyItem.position.inSeconds > 10) {
+          _controller!.seekTo(historyItem.position);
+        }
+      }
+
+      _controller!.addListener(_onPlaybackUpdate);
       _controller!.play();
       _startHideControlsTimer();
     } catch (e, stackTrace) {
@@ -165,6 +185,32 @@ class _PlayerScreenState extends State<PlayerScreen>
       setState(() {
         _statusMessage = displayMessage;
       });
+    }
+  }
+
+  void _onPlaybackUpdate() {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+
+    if (widget.detail != null) {
+      final pos = _controller!.value.position;
+      final dur = _controller!.value.duration;
+      if (dur.inSeconds > 0 && pos.inSeconds % 5 == 0) {
+        final itemId = widget.episode?.id ?? widget.detail!.id;
+        final historyItem = PlaybackHistoryItem(
+          id: itemId,
+          title: widget.detail!.name,
+          poster: widget.detail!.poster,
+          backdrop: widget.backdropUrl,
+          type: widget.detail!.type,
+          episodeTitle: widget.episode?.title,
+          seasonNumber: widget.episode?.season,
+          episodeNumber: widget.episode?.episode,
+          position: pos,
+          duration: dur,
+          lastWatched: DateTime.now(),
+        );
+        PlaybackHistoryService.saveProgress(historyItem);
+      }
     }
   }
 
@@ -641,13 +687,16 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void dispose() {
     _hideTimer?.cancel();
+    if (_controller != null) {
+      _controller!.removeListener(_onPlaybackUpdate);
+      _controller!.dispose();
+    }
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    _controller?.dispose();
     _logoAnimController.dispose();
     TorrentStreamService().cleanup();
     super.dispose();

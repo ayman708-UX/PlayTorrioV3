@@ -951,13 +951,13 @@ class _DetailsPageState extends State<DetailsPage> with SingleTickerProviderStat
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  inList ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  inList ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
                   color: inList ? const Color(0xFF7C5CFF) : Colors.white,
                   size: 22,
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  inList ? 'In Library' : 'Library',
+                  inList ? 'In Collection' : 'Add to Collection',
                   style: TextStyle(
                     color: inList ? const Color(0xFF7C5CFF) : Colors.white,
                     fontSize: 14,
