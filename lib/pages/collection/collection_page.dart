@@ -222,7 +222,6 @@ class _CollectionPageState extends State<CollectionPage>
               _buildDownloadsTab(),
             ],
           ),
-          const AppDock(currentHub: AppHub.collection),
         ],
       ),
     );

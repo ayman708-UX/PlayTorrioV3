@@ -240,9 +240,6 @@ class _HomePageState extends State<HomePage> {
           child: _CustomScrollTrack(controller: _scrollController),
         ),
 
-      // ── Liquid Dock Navbar ──
-      const AppDock(currentHub: AppHub.media),
-
       // ── Intro Splash Screen ──
       Positioned.fill(child: _buildIntroOverlay(context)),
     ];

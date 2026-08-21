@@ -7,6 +7,7 @@ import '../manga/manga_page.dart';
 import '../audiobooks/audiobooks_page.dart';
 import '../music/music_page.dart';
 import '../collection/collection_page.dart';
+import '../settings/settings_page.dart';
 
 /// HubPage: a top-level container that will host all primary app hubs
 /// (Movies & Series, Anime, Manga, Audiobooks, Music, Collection).
@@ -43,11 +44,29 @@ class _HubPageState extends State<HubPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Note: dock is still provided by child pages for now. Later stages will
-      // move a single AppDock instance here and wire it to _setHub.
-      body: IndexedStack(
-        index: _currentHub.index,
-        children: _children,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentHub.index,
+            children: _children,
+          ),
+          AppDock(
+            currentHub: _currentHub,
+            onSelectHub: (hub) {
+              // Update the displayed hub
+              _setHub(hub);
+            },
+            onSettingsTap: () {
+              Navigator.push(
+                context,
+                // Use the same LiquidReveal transition for settings
+                // tapPosition left as null for center reveal
+                // to match previous behavior
+                LiquidRevealRoute(page: const SettingsPage(), tapPosition: null),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

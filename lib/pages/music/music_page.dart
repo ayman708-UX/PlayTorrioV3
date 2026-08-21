@@ -893,7 +893,6 @@ class _MusicPageState extends State<MusicPage> {
               ),
 
             // Persistent Hub Navigation Dock
-            const AppDock(currentHub: AppHub.music),
           ],
         ),
       ),

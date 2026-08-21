@@ -197,7 +197,6 @@ class _MangaPageState extends State<MangaPage> {
               ),
 
             // Bottom Navigation Dock
-            const AppDock(currentHub: AppHub.manga),
           ],
         ),
       ),

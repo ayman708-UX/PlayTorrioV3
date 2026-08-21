@@ -332,7 +332,6 @@ class _AudiobooksPageState extends State<AudiobooksPage> {
           ),
 
           // Persistent Bottom Navigation Dock
-          const AppDock(currentHub: AppHub.audiobooks),
         ],
       ),
     );
