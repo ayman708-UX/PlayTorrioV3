@@ -4,6 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:fvp/fvp.dart' as fvp;
 
 import './pages/home/home_page.dart';
+import './pages/hub/hub_page.dart';
+
+// Feature flag for staged rollout of HubPage refactor. Set to true to enable the
+// HubPage container (IndexedStack). Keep false to preserve the previous
+// single-HomePage behavior.
+const bool enableHubPage = true;
 import './services/addon/addon_manager.dart';
 import './services/app_updater_service.dart';
 import './services/debrid/debrid_service.dart';
@@ -108,7 +114,7 @@ class _PlayTorrioAppState extends State<PlayTorrioApp>
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         overscroll: false,
       ),
-      home: const HomePage(),
+      home: enableHubPage ? const HubPage() : const HomePage(),
     );
   }
 }
