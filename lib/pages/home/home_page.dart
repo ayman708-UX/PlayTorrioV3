@@ -229,7 +229,6 @@ class _HomePageState extends State<HomePage> {
         child: _GlassAppBar(
           topPadding: topPadding,
           onSearchTap: _navigateToSearch,
-          onSettingsTap: _navigateToSettings,
         ),
       ),
 
@@ -339,12 +338,10 @@ class _HomePageState extends State<HomePage> {
 class _GlassAppBar extends StatelessWidget {
   final double topPadding;
   final void Function(Offset?) onSearchTap;
-  final void Function(Offset?) onSettingsTap;
 
   const _GlassAppBar({
     required this.topPadding,
     required this.onSearchTap,
-    required this.onSettingsTap,
   });
 
   @override
@@ -355,7 +352,7 @@ class _GlassAppBar extends StatelessWidget {
           top: topPadding + 10,
           bottom: 14,
           left: 20,
-          right: 8,
+          right: 20,
         ),
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -386,8 +383,8 @@ class _GlassAppBar extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
-            const SizedBox(width: 14),
-            // Search Bar (Open and clickable on top)
+            const SizedBox(width: 18),
+            // Search Bar (Open and clickable on top, filling available space)
             Expanded(
               child: Builder(
                 builder: (context) {
@@ -400,28 +397,28 @@ class _GlassAppBar extends StatelessWidget {
                       onSearchTap(offset);
                     },
                     child: Container(
-                      height: 38,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      height: 40,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
                         color: const Color(0xFF141824).withValues(alpha: 0.85),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: Colors.white.withValues(alpha: 0.10),
                         ),
                       ),
                       child: Row(
                         children: [
                           Icon(
                             Icons.search_rounded,
-                            size: 18,
-                            color: Colors.white.withValues(alpha: 0.5),
+                            size: 19,
+                            color: Colors.white.withValues(alpha: 0.55),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Text(
                             'Search movies, series, anime...',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.45),
+                              fontSize: 13.5,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -431,26 +428,6 @@ class _GlassAppBar extends StatelessWidget {
                   );
                 },
               ),
-            ),
-            const SizedBox(width: 10),
-            // Settings Icon
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  icon: Icon(
-                    Icons.settings_rounded,
-                    color: Colors.white.withValues(alpha: 0.65),
-                    size: 22,
-                  ),
-                  onPressed: () {
-                    final box = context.findRenderObject() as RenderBox?;
-                    final offset = box != null
-                        ? box.localToGlobal(box.size.center(Offset.zero))
-                        : null;
-                    onSettingsTap(offset);
-                  },
-                );
-              },
             ),
           ],
         ),

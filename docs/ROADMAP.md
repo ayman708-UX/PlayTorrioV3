@@ -19,14 +19,14 @@ This document outlines the strategic roadmap for UI/UX redesign, navigation simp
 
 ## 📅 Implementation Status
 
-| Phase | Milestone | Status | Key Deliverables |
-| :--- | :--- | :--- | :--- |
-| **Phase 1** | UI & Dock Simplification | ✅ **Completed** | 7-item persistent `LiquidDock` (`AppDock`), dedicated Anime hub, Addons & Settings in dock. |
-| **Phase 2** | Collection Hub & History | ✅ **Completed** | `CollectionPage` with My List, Watchlist, History (Continue Watching), and Offline Downloads. |
-| **Phase 3** | Cast & Crew Enrichment | ✅ **Completed** | `CastMember` & `CrewMember` models, TMDB profile images, Direction section, tap-to-discover. |
-| **Phase 4** | Cloud Debrid Services | ✅ **Completed** | `DebridService` with Real-Debrid & Torbox token verification in Settings. |
-| **Phase 5** | Player Engine & Scrobbling | ✅ **Completed** | Auto-progress recording, 15s connect timeout safety, Trakt automatic scrobbler. |
-| **Phase 6** | Advanced Player Gestures | ⏳ **Pending** | Swipes for volume/brightness and auto-next episode countdown during credits. |
+| Phase       | Milestone                  | Status          | Key Deliverables                                                                              |
+|:------------|:---------------------------|:----------------|:----------------------------------------------------------------------------------------------|
+| **Phase 1** | UI & Dock Simplification   | ✅ **Completed** | 7-item persistent `LiquidDock` (`AppDock`), dedicated Anime hub, Addons & Settings in dock.   |
+| **Phase 2** | Collection Hub & History   | ✅ **Completed** | `CollectionPage` with My List, Watchlist, History (Continue Watching), and Offline Downloads. |
+| **Phase 3** | Cast & Crew Enrichment     | ✅ **Completed** | `CastMember` & `CrewMember` models, TMDB profile images, Direction section, tap-to-discover.  |
+| **Phase 4** | Cloud Debrid Services      | ✅ **Completed** | `DebridService` with Real-Debrid & Torbox token verification in Settings.                     |
+| **Phase 5** | Player Engine & Scrobbling | ✅ **Completed** | Auto-progress recording, 15s connect timeout safety, Trakt automatic scrobbler.               |
+| **Phase 6** | Advanced Player Gestures   | ⏳ **Pending**   | Swipes for volume/brightness and auto-next episode countdown during credits.                  |
 
 ---
 
