@@ -27,3 +27,18 @@ This document outlines the logging strategy, error diagnostic protocols, and run
 For debugging JS extractors or verifying resolved stream URLs:
 - Use helper scripts located in the `TempJs/` directory for isolated testing via Node.js / Dart CLI.
 - Inspect JS evaluator logs to capture request parameters, custom headers (*Referer*, *User-Agent*), and JSON output formats.
+
+---
+
+## ROADMAP -> CHANGELOG migration logs
+
+- 2026-08-21: Consolidated completed ROADMAP items into docs/CHANGELOG.md under an [unreleased] section. Items moved include:
+  - Streamlined Navigation (7 hubs)
+  - Unified Collection Hub (My List, Watchlist, History, Downloads)
+  - Dedicated Anime Hub
+  - Rich Cast & Crew (TMDB headshots)
+  - Debrid Integration (Real-Debrid, Torbox)
+  - Player timeouts & Trakt scrobbling
+  - Addons Management in Settings
+
+These moves were automated as part of the HubPage refactor workflow.
