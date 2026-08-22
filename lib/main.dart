@@ -10,6 +10,9 @@ import './services/glass_settings.dart';
 import './services/my_list/my_list_service.dart';
 import './services/trakt/trakt_auth_service.dart';
 import './services/trakt/trakt_sync_service.dart';
+import './services/torbox/torbox_service.dart';
+import './services/iptv/iptv_favorites_service.dart';
+import './services/iptv/iptv_epg_settings.dart';
 import './widgets/update_dialog.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -32,6 +35,9 @@ void main() async {
     MyListService.initialize(),
     TraktAuthService().initialize(),
     TraktSyncService.initialize(),
+    TorBoxService().initialize(),
+    IptvFavoritesService.instance.initialize(),
+    IptvEpgSettings.initialize(),
   ]);
   runApp(const PlayTorrioApp());
 }

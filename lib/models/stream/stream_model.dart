@@ -12,6 +12,7 @@ class StreamSource {
   final Map<String, dynamic>? behaviorHints;
   final List<String>? sources;
   final Map<String, String>? headers;
+  final bool torboxCached;
 
   StreamSource({
     this.name,
@@ -25,6 +26,7 @@ class StreamSource {
     this.behaviorHints,
     this.sources,
     this.headers,
+    this.torboxCached = false,
   });
 
   factory StreamSource.fromJson(Map<String, dynamic> json, String addonName) {
@@ -56,6 +58,36 @@ class StreamSource {
       addonName: addonName,
       behaviorHints: hints,
       sources: srcList,
+    );
+  }
+
+  StreamSource copyWith({
+    String? name,
+    String? title,
+    String? url,
+    String? externalUrl,
+    String? description,
+    String? infoHash,
+    int? fileIdx,
+    String? addonName,
+    Map<String, dynamic>? behaviorHints,
+    List<String>? sources,
+    Map<String, String>? headers,
+    bool? torboxCached,
+  }) {
+    return StreamSource(
+      name: name ?? this.name,
+      title: title ?? this.title,
+      url: url ?? this.url,
+      externalUrl: externalUrl ?? this.externalUrl,
+      description: description ?? this.description,
+      infoHash: infoHash ?? this.infoHash,
+      fileIdx: fileIdx ?? this.fileIdx,
+      addonName: addonName ?? this.addonName,
+      behaviorHints: behaviorHints ?? this.behaviorHints,
+      sources: sources ?? this.sources,
+      headers: headers ?? this.headers,
+      torboxCached: torboxCached ?? this.torboxCached,
     );
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:libtorrent_flutter/libtorrent_flutter.dart';
 
 import '../../utils/parse_torrent_title.dart';
+import '../torbox/torbox_service.dart';
 
 /// Rich torrent statistics object.
 class TorrentStats {
@@ -140,6 +141,20 @@ class TorrentStreamService {
     int? episode,
     int? fileIdx,
   }) async {
+    final torbox = TorBoxService();
+    if (torbox.isConfigured.value) {
+      _log('Trying TorBox debrid...');
+      final torboxUrl = await torbox.streamTorrent(
+        magnetLink,
+        season: season,
+        episode: episode,
+        fileIdx: fileIdx,
+        onLog: _log,
+      );
+      if (torboxUrl != null) return torboxUrl;
+      _log('TorBox unavailable, falling back to local torrent engine');
+    }
+
     if (_state != EngineState.ready) {
       final started = await start();
       if (!started) {

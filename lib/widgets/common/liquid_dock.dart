@@ -3,7 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
-import '../../services/glass_settings.dart';
+import '../../services/dock_theme_settings.dart';
+import 'dock_theme_styles.dart';
 import 'performance_liquid_lens.dart';
 
 class DockItem {
@@ -56,7 +57,7 @@ class _LiquidDockState extends State<LiquidDock> {
   /// by sweeping mouse state across all dock items under the intro overlay.
   void _prewarmDockAnimation() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || !GlassSettings.enabled.value) return;
+      if (!mounted || !DockThemeSettings.theme.value.usesLiquidGlass) return;
 
       final itemExtent = widget.baseItemSize + 10;
       final totalWidth = widget.items.length * itemExtent + 32;
@@ -191,49 +192,61 @@ class _LiquidDockState extends State<LiquidDock> {
       ],
     );
 
-    return MouseRegion(
-      onEnter: (_) {
-        if (GlassSettings.enabled.value) {
-          setState(() => _dockHovered = true);
-        }
-      },
-      onHover: (event) {
-        if (GlassSettings.enabled.value) {
-          setState(() => _mouseX = event.localPosition.dx);
-        }
-      },
-      onExit: (_) {
-        if (_dockHovered || _mouseX != null) {
-          setState(() {
-            _dockHovered = false;
-            _mouseX = null;
-          });
-        }
-      },
-      child: RepaintBoundary(
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.all(Radius.circular(32)),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0x66000000),
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: PerformanceLiquidLens(
-            style: PerformanceGlassStyles.dock,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: const Color(0x24FFFFFF)),
-              ),
-              child: dockContent,
+    return ValueListenableBuilder<DockTheme>(
+      valueListenable: DockThemeSettings.theme,
+      builder: (context, theme, _) {
+        Widget dockBody = Container(
+          decoration: DockThemeStyles.dockInnerDecoration(theme),
+          child: dockContent,
+        );
+
+        if (theme == DockTheme.carbonFiber) {
+          dockBody = CarbonFiberPattern(
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: dockBody,
             ),
-          ),
-        ),
-      ),
+          );
+        } else if (theme == DockTheme.retro90s) {
+          dockBody = Padding(
+            padding: const EdgeInsets.all(4),
+            child: dockBody,
+          );
+        }
+
+        final shell = DecoratedBox(
+          decoration: DockThemeStyles.dockShellDecoration(theme),
+          child: theme == DockTheme.liquidGlass
+              ? PerformanceLiquidLens(
+                  style: PerformanceGlassStyles.dock,
+                  child: dockBody,
+                )
+              : dockBody,
+        );
+
+        return MouseRegion(
+          onEnter: (_) {
+            if (theme.usesLiquidGlass) {
+              setState(() => _dockHovered = true);
+            }
+          },
+          onHover: (event) {
+            if (theme.usesLiquidGlass) {
+              setState(() => _mouseX = event.localPosition.dx);
+            }
+          },
+          onExit: (_) {
+            if (_dockHovered || _mouseX != null) {
+              setState(() {
+                _dockHovered = false;
+                _mouseX = null;
+              });
+            }
+          },
+          child: RepaintBoundary(child: shell),
+        );
+      },
     );
   }
 }
@@ -260,12 +273,12 @@ class _DockItemWidgetState extends State<_DockItemWidget> {
   bool _hovered = false;
   double _jellyValue = 0;
 
-  Widget _icon(double size) => Tooltip(
+  Widget _icon(double size, DockTheme theme) => Tooltip(
     message: widget.item.label,
     child: Icon(
       widget.item.icon,
       size: size * 0.45,
-      color: const Color(0xF2FFFFFF),
+      color: DockThemeStyles.dockIconColor(theme, hovered: _hovered),
     ),
   );
 
@@ -348,7 +361,7 @@ class _DockItemWidgetState extends State<_DockItemWidget> {
                   scale: _pressed ? 0.76 : (_hovered ? 1.18 : 1),
                   duration: const Duration(milliseconds: 160),
                   curve: Curves.easeOutBack,
-                  child: _icon(targetSize),
+                  child: _icon(targetSize, DockTheme.liquidGlass),
                 ),
               ),
             ),
@@ -358,7 +371,7 @@ class _DockItemWidgetState extends State<_DockItemWidget> {
     );
   }
 
-  Widget _buildOptimized() {
+  Widget _buildOptimized(DockTheme theme) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => _setHover(true),
@@ -371,23 +384,21 @@ class _DockItemWidgetState extends State<_DockItemWidget> {
         onTap: widget.item.onTap,
         child: AnimatedScale(
           scale: _pressed ? 0.92 : (_hovered ? 1.08 : 1),
-          duration: const Duration(milliseconds: 110),
-          curve: Curves.easeOut,
+          duration: Duration(
+            milliseconds: theme == DockTheme.retro90s ? 80 : 110,
+          ),
+          curve: theme == DockTheme.retro90s
+              ? Curves.linear
+              : Curves.easeOut,
           child: Container(
             width: widget.size,
             height: widget.size,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: _hovered
-                    ? const [Color(0x38FFFFFF), Color(0x1FFFFFFF)]
-                    : const [Color(0x24FFFFFF), Color(0x12FFFFFF)],
-              ),
-              border: Border.all(color: const Color(0x26FFFFFF)),
+            decoration: DockThemeStyles.dockItemDecoration(
+              theme,
+              hovered: _hovered,
+              pressed: _pressed,
             ),
-            child: _icon(widget.size),
+            child: _icon(widget.size, theme),
           ),
         ),
       ),
@@ -397,10 +408,10 @@ class _DockItemWidgetState extends State<_DockItemWidget> {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: ValueListenableBuilder<bool>(
-        valueListenable: GlassSettings.enabled,
-        builder: (context, enabled, _) =>
-            enabled ? _buildFullLiquid() : _buildOptimized(),
+      child: ValueListenableBuilder<DockTheme>(
+        valueListenable: DockThemeSettings.theme,
+        builder: (context, theme, _) =>
+            theme.usesLiquidGlass ? _buildFullLiquid() : _buildOptimized(theme),
       ),
     );
   }

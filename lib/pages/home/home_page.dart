@@ -12,6 +12,7 @@ import '../details/details_page.dart';
 import '../../services/addon/addon_manager.dart';
 import '../../services/metadata/metadata_service.dart';
 import '../../services/glass_settings.dart';
+import '../../services/dock_theme_settings.dart';
 import '../../utils/route_transitions.dart';
 import '../../widgets/common/error_view.dart';
 import '../../widgets/movie/movie_slider_section.dart';
@@ -25,7 +26,8 @@ import '../my_list/my_list_page.dart';
 
 import '../../widgets/common/liquid_dock.dart';
 import '../../services/app_updater_service.dart';
-import '../../widgets/update_dialog.dart';
+import '../../widgets/iptv/iptv_home_section.dart';
+import '../iptv/iptv_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -191,15 +193,18 @@ class _HomePageState extends State<HomePage> {
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
-              itemCount: _sections.length + 2,
+              itemCount: _sections.length + 3,
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return _HeroCarousel(movies: _featuredMovies);
                 }
-                if (index == _sections.length + 1) {
+                if (index == 1) {
+                  return const IptvHomeSection();
+                }
+                if (index == _sections.length + 2) {
                   return const SizedBox(height: 50);
                 }
-                return MovieSliderSection(section: _sections[index - 1]);
+                return MovieSliderSection(section: _sections[index - 2]);
               },
             ),
           ),
@@ -303,6 +308,19 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
               DockItem(
+                icon: Icons.live_tv_rounded,
+                label: 'Live TV',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    LiquidRevealRoute(
+                      page: const IptvPage(),
+                      tapPosition: null,
+                    ),
+                  );
+                },
+              ),
+              DockItem(
                 icon: Icons.extension_rounded,
                 label: 'Addons',
                 onTap: () {},
@@ -354,11 +372,11 @@ class _HomePageState extends State<HomePage> {
       Positioned.fill(child: _buildIntroOverlay(context)),
     ];
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: GlassSettings.enabled,
-      builder: (context, enabled, _) {
+    return ValueListenableBuilder<DockTheme>(
+      valueListenable: DockThemeSettings.theme,
+      builder: (context, theme, _) {
         final overlays = Stack(children: overlayChildren);
-        if (enabled) {
+        if (theme.usesLiquidGlass) {
           return LiquidGlassView(
             realTimeCapture: true,
             useSync: true,

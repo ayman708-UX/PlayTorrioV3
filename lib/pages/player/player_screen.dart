@@ -52,6 +52,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   double _subtitleDelayMs = 0;
   double _subtitleScale = 1.0;
   String? _currentSubtitlePath;
+  bool _subtitlesEnabled = false;
   double _volume = 1.0;
   BoxFit _videoFit = BoxFit.contain;
 
@@ -198,6 +199,47 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
+  Future<void> _disableSubtitles({bool showFeedback = true}) async {
+    final controller = _controller;
+    if (controller == null) return;
+
+    controller.setSubtitleTracks([]);
+    controller.setProperty('subtitle', '0');
+
+    if (!mounted) return;
+    setState(() {
+      _subtitlesEnabled = false;
+      _currentSubtitlePath = null;
+    });
+
+    if (showFeedback && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Subtitles turned off'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _applySubtitlePath(String path) async {
+    final controller = _controller;
+    if (controller == null) return;
+
+    final resolvedPath = _subtitleDelayMs != 0
+        ? await _shiftSubtitleTime(path, _subtitleDelayMs)
+        : path;
+
+    controller.setProperty('subtitle', '1');
+    controller.setExternalSubtitle(resolvedPath);
+
+    if (!mounted) return;
+    setState(() {
+      _subtitlesEnabled = true;
+      _currentSubtitlePath = path;
+    });
+  }
+
   Future<void> _loadSubtitle(SubtitleVariant variant) async {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -219,13 +261,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
 
     if (_controller != null) {
-      _currentSubtitlePath = path;
-      if (_subtitleDelayMs != 0) {
-        final newPath = await _shiftSubtitleTime(path, _subtitleDelayMs);
-        _controller!.setExternalSubtitle(newPath);
-      } else {
-        _controller!.setExternalSubtitle(path);
-      }
+      await _applySubtitlePath(path);
     }
 
     if (mounted) {
@@ -442,6 +478,27 @@ class _PlayerScreenState extends State<PlayerScreen>
                       ),
                     ),
                     const SizedBox(height: 24),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.subtitles_off_rounded,
+                        color: !_subtitlesEnabled
+                            ? const Color(0xFF7C5CFF)
+                            : Colors.white54,
+                      ),
+                      title: const Text(
+                        'Turn off subtitles',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      trailing: !_subtitlesEnabled
+                          ? const Icon(Icons.check_rounded, color: Color(0xFF7C5CFF))
+                          : null,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _disableSubtitles();
+                      },
+                    ),
+                    const Divider(color: Colors.white12, height: 24),
                     Row(
                       children: [
                         const Icon(
@@ -467,11 +524,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                             },
                             onChangeEnd: (value) async {
                               if (_currentSubtitlePath != null) {
-                                final newPath = await _shiftSubtitleTime(
-                                  _currentSubtitlePath!,
-                                  value,
-                                );
-                                _controller?.setExternalSubtitle(newPath);
+                                await _applySubtitlePath(_currentSubtitlePath!);
                               }
                             },
                           ),
@@ -542,96 +595,128 @@ class _PlayerScreenState extends State<PlayerScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return _StaticGlassPanel(
-          child: FutureBuilder<List<SubtitleLanguageGroup>>(
-            future: SubtitleService().fetchAllSubtitles(
-              widget.detail?.name ?? widget.title,
-              imdbId: widget.detail?.id,
-              season: widget.episode?.season,
-              episode: widget.episode?.episode,
-              year: searchYear,
-            ),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(color: Color(0xFF7C5CFF)),
-                        SizedBox(height: 16),
-                        Text(
-                          'Searching for subtitles...',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                      ],
+        final sheetHeight = MediaQuery.sizeOf(context).height * 0.55;
+        return SizedBox(
+          height: sheetHeight,
+          child: _StaticGlassPanel(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(
+                    Icons.subtitles_off_rounded,
+                    color: !_subtitlesEnabled
+                        ? const Color(0xFF7C5CFF)
+                        : Colors.white54,
+                  ),
+                  title: const Text(
+                    'Off',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                );
-              }
-              if (snapshot.hasError ||
-                  !snapshot.hasData ||
-                  snapshot.data!.isEmpty) {
-                return const SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: Text(
-                      'No subtitles found.',
-                      style: TextStyle(color: Colors.white70),
-                    ),
+                  subtitle: const Text(
+                    'Hide all subtitles',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
                   ),
-                );
-              }
+                  trailing: !_subtitlesEnabled
+                      ? const Icon(Icons.check_rounded, color: Color(0xFF7C5CFF))
+                      : null,
+                  onTap: () {
+                    Navigator.pop(context);
+                    _disableSubtitles();
+                  },
+                ),
+                const Divider(color: Colors.white12, height: 1),
+                Expanded(
+                  child: FutureBuilder<List<SubtitleLanguageGroup>>(
+                    future: SubtitleService().fetchAllSubtitles(
+                      widget.detail?.name ?? widget.title,
+                      imdbId: widget.detail?.id,
+                      season: widget.episode?.season,
+                      episode: widget.episode?.episode,
+                      year: searchYear,
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(color: Color(0xFF7C5CFF)),
+                              SizedBox(height: 16),
+                              Text(
+                                'Searching for subtitles...',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      if (snapshot.hasError ||
+                          !snapshot.hasData ||
+                          snapshot.data!.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'No subtitles found.',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        );
+                      }
 
-              final groups = snapshot.data!;
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                itemCount: groups.length,
-                itemBuilder: (context, index) {
-                  final group = groups[index];
-                  return ExpansionTile(
-                    collapsedIconColor: Colors.white70,
-                    iconColor: const Color(0xFF7C5CFF),
-                    title: Text(
-                      group.language,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    children: group.variants.map((variant) {
-                      return ListTile(
-                        title: Text(
-                          variant.title,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                        subtitle: Text(
-                          variant.providerName,
-                          style: const TextStyle(
-                            color: Colors.white38,
-                            fontSize: 12,
-                          ),
-                        ),
-                        trailing: const Icon(
-                          Icons.download_rounded,
-                          color: Colors.white54,
-                          size: 20,
-                        ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          _loadSubtitle(variant);
+                      final groups = snapshot.data!;
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        itemCount: groups.length,
+                        itemBuilder: (context, index) {
+                          final group = groups[index];
+                          return ExpansionTile(
+                            collapsedIconColor: Colors.white70,
+                            iconColor: const Color(0xFF7C5CFF),
+                            title: Text(
+                              group.language,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            children: group.variants.map((variant) {
+                              return ListTile(
+                                title: Text(
+                                  variant.title,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  variant.providerName,
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                trailing: const Icon(
+                                  Icons.download_rounded,
+                                  color: Colors.white54,
+                                  size: 20,
+                                ),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _loadSubtitle(variant);
+                                },
+                              );
+                            }).toList(),
+                          );
                         },
                       );
-                    }).toList(),
-                  );
-                },
-              );
-            },
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -952,9 +1037,13 @@ class _PlayerScreenState extends State<PlayerScreen>
                   const SizedBox(width: 16),
                   _AnimatedLiquidButton(
                     baseSize: 48,
-                    icon: const Icon(
-                      Icons.subtitles_rounded,
-                      color: Colors.white,
+                    icon: Icon(
+                      _subtitlesEnabled
+                          ? Icons.subtitles_rounded
+                          : Icons.subtitles_off_rounded,
+                      color: _subtitlesEnabled
+                          ? Colors.white
+                          : Colors.white54,
                       size: 24,
                     ),
                     onPressed: () {
