@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../../models/music/music_track.dart';
+import '../playback_coordinator.dart';
 import 'music_library_service.dart';
 import 'music_service.dart';
 import 'youtube_stream_http.dart';
@@ -14,6 +15,22 @@ class MusicPlayerController extends ChangeNotifier {
   MusicPlayerController._internal();
 
   VideoPlayerController? _videoPlayerController;
+
+  /// Called when the universal play bar requests expanding the full player.
+  VoidCallback? _onExpandRequested;
+
+  /// Called when the universal play bar requests opening the artist.
+  VoidCallback? _onOpenArtistRequested;
+
+  /// Lets the universal play bar open the full music player.
+  void setExpandCallback(VoidCallback callback) {
+    _onExpandRequested = callback;
+  }
+
+  /// Lets the universal play bar open the artist for the current track.
+  void setOpenArtistCallback(VoidCallback callback) {
+    _onOpenArtistRequested = callback;
+  }
 
   MusicTrack? _currentTrack;
   List<MusicTrack> _playlist = [];
@@ -57,6 +74,24 @@ class MusicPlayerController extends ChangeNotifier {
     MusicTrack track, {
     List<MusicTrack>? playlistQueue,
   }) async {
+    // Ensure only one source plays app-wide: stop any other active source.
+    PlaybackCoordinator.activate(
+      'music:${track.id}',
+      () {
+        _videoPlayerController?.pause();
+        _isPlaying = false;
+        notifyListeners();
+      },
+      kind: 'music',
+      title: track.title,
+      subtitle: track.artist,
+      coverUrl: track.coverUrl,
+      onTogglePlayPause: togglePlayPause,
+      onExpand: _onExpandRequested,
+      onOpenArtist: _onOpenArtistRequested,
+      onSeek: seekTo,
+    );
+
     if (playlistQueue != null && playlistQueue.isNotEmpty) {
       _originalPlaylist = List<MusicTrack>.from(playlistQueue);
       if (_isShuffle) {
@@ -176,6 +211,9 @@ class MusicPlayerController extends ChangeNotifier {
     }
     _isPlaying = value.isPlaying;
 
+    // Keep the universal play bar's progress bar in sync.
+    PlaybackCoordinator.setProgress(_position, _duration);
+
     _updateActiveLyricIndex();
 
     // Check track completed
@@ -218,6 +256,7 @@ class MusicPlayerController extends ChangeNotifier {
     if (_videoPlayerController != null) {
       await _videoPlayerController!.play();
       _isPlaying = true;
+      PlaybackCoordinator.setPlaying(true);
       notifyListeners();
     } else if (_currentTrack != null) {
       await _loadAndPlayTrack(_currentTrack!);
@@ -228,6 +267,7 @@ class MusicPlayerController extends ChangeNotifier {
     if (_videoPlayerController != null) {
       await _videoPlayerController!.pause();
       _isPlaying = false;
+      PlaybackCoordinator.setPlaying(false);
       notifyListeners();
     }
   }
@@ -339,6 +379,9 @@ class MusicPlayerController extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_currentTrack != null) {
+      PlaybackCoordinator.release('music:${_currentTrack!.id}');
+    }
     _videoPlayerController?.removeListener(_onPlayerStateChanged);
     _videoPlayerController?.dispose();
     super.dispose();

@@ -7,7 +7,6 @@ import '../../services/anime/anilist_service.dart';
 import '../../utils/route_transitions.dart';
 import '../../widgets/anime/anime_slider_section.dart';
 import 'anime_details_page.dart';
-import 'anime_stream_sheet.dart';
 
 class AnimeSearchPage extends StatefulWidget {
   const AnimeSearchPage({super.key});
@@ -388,19 +387,6 @@ class _AnimeSearchPageState extends State<AnimeSearchPage> {
       context,
       CinematicSlideRoute(
         page: AnimeDetailsPage(anime: anime),
-      ),
-    );
-  }
-
-  void _playEpisode(AnimeMedia anime, int episodeNumber, [bool isDub = false]) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => AnimeStreamSheet(
-        anime: anime,
-        episodeNumber: episodeNumber,
-        autoPlay: false,
       ),
     );
   }

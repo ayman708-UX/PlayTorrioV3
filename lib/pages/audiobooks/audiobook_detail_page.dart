@@ -3,7 +3,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/audiobook/audiobook_model.dart';
+import '../../services/audiobook/audiobook_library_service.dart';
+import '../../services/audiobook/audiobook_player_controller.dart';
 import '../../services/audiobook/audiobook_scraper_service.dart';
+import '../../utils/fullscreen_navigator.dart';
 import 'audiobook_player_screen.dart';
 import 'audiobook_route_transitions.dart';
 
@@ -25,11 +28,36 @@ class _AudiobookDetailPageState extends State<AudiobookDetailPage> {
   List<AudiobookChapter>? _chapters;
   bool _loading = true;
   String? _error;
+  bool _isLiked = false;
 
   @override
   void initState() {
     super.initState();
     _fetchChapters();
+    AudiobookLibraryService.instance.init();
+    _isLiked = AudiobookLibraryService.instance.isLiked(widget.audiobook.uuid);
+    // Tapping the bottom play bar opens the fullscreen player.
+    AudiobookPlayerController.instance.setExpandCallback(() {
+      if (!mounted || _chapters == null || _chapters!.isEmpty) return;
+      pushFullscreen(
+        AudiobookPageRoute(
+          page: AudiobookPlayerScreen(
+            audiobook: widget.audiobook,
+            chapters: _chapters!,
+            initialChapterIndex: AudiobookPlayerController.instance.currentIndex,
+          ),
+        ),
+      );
+    });
+  }
+
+  Future<void> _toggleLike() async {
+    await AudiobookLibraryService.instance.toggleLike(widget.audiobook);
+    if (mounted) {
+      setState(() {
+        _isLiked = AudiobookLibraryService.instance.isLiked(widget.audiobook.uuid);
+      });
+    }
   }
 
   Future<void> _fetchChapters() async {
@@ -60,15 +88,13 @@ class _AudiobookDetailPageState extends State<AudiobookDetailPage> {
     if (_chapters == null || _chapters!.isEmpty) return;
     final initialIndex = _chapters!.indexOf(chapter).clamp(0, _chapters!.length - 1);
 
-    Navigator.push(
-      context,
-      AudiobookPageRoute(
-        page: AudiobookPlayerScreen(
-          audiobook: widget.audiobook,
-          chapters: _chapters!,
-          initialChapterIndex: initialIndex,
-        ),
-      ),
+    // Start playback in the background so the bottom play bar appears instead
+    // of a fullscreen player. Tapping the bottom bar opens the fullscreen
+    // player.
+    AudiobookPlayerController.instance.play(
+      widget.audiobook,
+      _chapters!,
+      chapterIndex: initialIndex,
     );
   }
 
@@ -244,8 +270,17 @@ class _AudiobookDetailPageState extends State<AudiobookDetailPage> {
                             ),
                             const SizedBox(height: 16),
                             if (_chapters != null && _chapters!.isNotEmpty)
-                              _PlayFirstChapterButton(
-                                onPressed: () => _playChapter(_chapters!.first),
+                              Row(
+                                children: [
+                                  _PlayFirstChapterButton(
+                                    onPressed: () => _playChapter(_chapters!.first),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  _LikeButton(
+                                    isLiked: _isLiked,
+                                    onTap: _toggleLike,
+                                  ),
+                                ],
                               ),
                           ],
                         ),
@@ -390,6 +425,79 @@ class _PlayFirstChapterButtonState extends State<_PlayFirstChapterButton> {
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LikeButton extends StatefulWidget {
+  final bool isLiked;
+  final VoidCallback onTap;
+
+  const _LikeButton({required this.isLiked, required this.onTap});
+
+  @override
+  State<_LikeButton> createState() => _LikeButtonState();
+}
+
+class _LikeButtonState extends State<_LikeButton> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = _isPressed ? 0.94 : (_isHovered ? 1.05 : 1.0);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: scale,
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: widget.isLiked
+                  ? const Color(0xFFE50914)
+                  : Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.isLiked
+                    ? const Color(0xFFE50914)
+                    : Colors.white.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  widget.isLiked
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: widget.isLiked ? Colors.white : Colors.white70,
+                  size: 22,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.isLiked ? 'Liked' : 'Like',
+                  style: TextStyle(
+                    color: widget.isLiked ? Colors.white : Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],

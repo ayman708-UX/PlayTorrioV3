@@ -1,3 +1,4 @@
+import 'cast_member.dart';
 import 'link.dart';
 import 'video.dart';
 
@@ -13,7 +14,9 @@ class MovieDetail {
   final String? imdbRating;
   final List<String> genres;
   final List<String> cast;
+  final List<CastMember> castMembers;
   final List<String> director;
+  final List<CrewMember> directorsList;
   final String? runtime;
   final List<Link> links;
   final List<Video> videos;
@@ -31,7 +34,9 @@ class MovieDetail {
     this.imdbRating,
     this.genres = const [],
     this.cast = const [],
+    this.castMembers = const [],
     this.director = const [],
+    this.directorsList = const [],
     this.runtime,
     this.links = const [],
     this.videos = const [],
@@ -39,6 +44,14 @@ class MovieDetail {
   });
 
   factory MovieDetail.fromJson(Map<String, dynamic> json) {
+    final rawCast = json['cast'];
+    final castStrings = _parseStringList(rawCast);
+    final parsedCastMembers = _parseCastMembers(rawCast);
+
+    final rawDirector = json['director'] ?? json['directors'];
+    final directorStrings = _parseStringList(rawDirector);
+    final parsedDirectors = _parseDirectors(rawDirector);
+
     return MovieDetail(
       id: json['id']?.toString() ?? '',
       type: json['type']?.toString() ?? 'movie',
@@ -50,8 +63,10 @@ class MovieDetail {
       year: json['releaseInfo']?.toString() ?? json['year']?.toString(),
       imdbRating: json['imdbRating']?.toString(),
       genres: _parseStringList(json['genres']),
-      cast: _parseStringList(json['cast']),
-      director: _parseStringList(json['director']),
+      cast: castStrings,
+      castMembers: parsedCastMembers,
+      director: directorStrings,
+      directorsList: parsedDirectors,
       runtime: json['runtime']?.toString(),
       links: (json['links'] as List<dynamic>?)
               ?.map((e) => Link.fromJson(e as Map<String, dynamic>))
@@ -66,9 +81,36 @@ class MovieDetail {
   }
 }
 
+List<CastMember> _parseCastMembers(dynamic value) {
+  if (value == null) return [];
+  if (value is List) {
+    return value.map((e) => CastMember.fromJson(e)).toList();
+  }
+  if (value is String) {
+    return [CastMember(name: value)];
+  }
+  return [];
+}
+
+List<CrewMember> _parseDirectors(dynamic value) {
+  if (value == null) return [];
+  if (value is List) {
+    return value.map((e) => CrewMember.fromJson(e, job: 'Director')).toList();
+  }
+  if (value is String) {
+    return [CrewMember(name: value, job: 'Director')];
+  }
+  return [];
+}
+
 List<String> _parseStringList(dynamic value) {
   if (value == null) return [];
   if (value is String) return [value];
-  if (value is List) return value.map((e) => e.toString()).toList();
+  if (value is List) {
+    return value.map((e) {
+      if (e is Map) return (e['name'] ?? e['title'] ?? '').toString();
+      return e.toString();
+    }).where((s) => s.isNotEmpty).toList();
+  }
   return [];
 }

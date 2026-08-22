@@ -5,6 +5,7 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import '../../models/manga/manga.dart';
 import '../../models/manga/manga_chapter.dart';
 import '../../services/manga/manga_service.dart';
+import '../../utils/fullscreen_navigator.dart';
 import 'manga_reader_page.dart';
 
 class MangaDetailsPage extends StatefulWidget {
@@ -25,6 +26,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   List<MangaChapter>? _chapters;
   Map<String, dynamic>? _historyEntry;
   bool _isLoading = true;
+  bool _isLiked = false;
 
   // Chapter Pagination & Search
   String _chapterSearchQuery = '';
@@ -35,6 +37,18 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   void initState() {
     super.initState();
     _loadDetails();
+    _loadLikedState();
+  }
+
+  Future<void> _loadLikedState() async {
+    final liked = await _mangaService.isLiked(widget.manga.id);
+    if (mounted) setState(() => _isLiked = liked);
+  }
+
+  Future<void> _toggleLike() async {
+    final manga = _fullDetails ?? widget.manga;
+    await _mangaService.toggleLike(manga);
+    if (mounted) setState(() => _isLiked = !_isLiked);
   }
   
   @override
@@ -72,7 +86,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   void _startReading(int chapterIndex, {int pageIndex = 0}) {
     if (_chapters == null || _chapters!.isEmpty) return;
     
-    Navigator.of(context).push(
+    pushFullscreen(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => MangaReaderPage(
           manga: _fullDetails ?? widget.manga,
@@ -263,6 +277,8 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                                 textColor: Colors.black,
                                 onTap: () => _startReading(_chapters!.length - 1),
                               ),
+                            const SizedBox(width: 16),
+                            _buildLikeButton(),
                           ],
                         ),
                     ],
@@ -502,6 +518,48 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                 label,
                 style: TextStyle(
                   color: textColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLikeButton() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _toggleLike,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: _isLiked
+                ? const Color(0xFFE50914)
+                : Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _isLiked
+                  ? const Color(0xFFE50914)
+                  : Colors.white.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                color: _isLiked ? Colors.white : Colors.white70,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _isLiked ? 'Liked' : 'Like',
+                style: TextStyle(
+                  color: _isLiked ? Colors.white : Colors.white70,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),

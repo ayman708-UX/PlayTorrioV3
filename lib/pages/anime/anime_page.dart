@@ -10,16 +10,9 @@ import '../../services/glass_settings.dart';
 import '../../utils/route_transitions.dart';
 import '../../widgets/anime/anime_slider_section.dart';
 import '../../widgets/common/custom_scroll_track.dart';
-import '../../widgets/common/liquid_dock.dart';
-import '../audiobooks/audiobooks_page.dart';
-import '../manga/manga_page.dart';
-import '../music/music_page.dart';
-import '../my_list/my_list_page.dart';
-import '../search/search_page.dart';
-import '../settings/settings_page.dart';
+import '../../widgets/common/page_search_button.dart';
 import 'anime_details_page.dart';
 import 'anime_stream_sheet.dart';
-import 'anime_search_page.dart';
 
 class AnimePage extends StatefulWidget {
   const AnimePage({super.key});
@@ -115,7 +108,7 @@ class _AnimePageState extends State<AnimePage> {
     }
   }
 
-  void _playEpisode(AnimeMedia anime, int episodeNumber, [bool isDub = false]) {
+  void _playEpisode(AnimeMedia anime, int episodeNumber) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -137,30 +130,8 @@ class _AnimePageState extends State<AnimePage> {
     );
   }
 
-  void _navigateToSettings(Offset? tapPosition) {
-    Navigator.push(
-      context,
-      LiquidRevealRoute(
-        page: const SettingsPage(),
-        tapPosition: tapPosition,
-      ),
-    );
-  }
-
-  void _navigateToSearch(Offset? tapPosition) {
-    Navigator.push(
-      context,
-      LiquidRevealRoute(
-        page: const AnimeSearchPage(),
-        tapPosition: tapPosition,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-
     final backgroundContent = Stack(
       children: [
         // Ambient background glows matching Home
@@ -305,18 +276,6 @@ class _AnimePageState extends State<AnimePage> {
     );
 
     final overlayChildren = <Widget>[
-      // Floating Glass App Bar (Home Page Style)
-      Positioned(
-        top: 0,
-        left: 0,
-        right: 0,
-        child: _AnimeGlassAppBar(
-          topPadding: topPadding,
-          onSearchTap: _navigateToSearch,
-          onSettingsTap: _navigateToSettings,
-        ),
-      ),
-
       // Custom Scroll Track (Matching Home Page)
       if (MediaQuery.sizeOf(context).width > 800)
         Positioned(
@@ -324,99 +283,15 @@ class _AnimePageState extends State<AnimePage> {
           bottom: 40,
           child: CustomScrollTrack(controller: _scrollController),
         ),
-
-      // Liquid Dock Navbar (Home Page Style)
       Positioned(
-        bottom: 24,
-        left: 0,
-        right: 0,
-        child: Center(
-          child: LiquidDock(
-            items: [
-              DockItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
-                onTap: () => Navigator.pop(context),
-              ),
-              DockItem(
-                icon: Icons.auto_stories_rounded,
-                label: 'Manga',
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MangaPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.headphones_rounded,
-                label: 'Audiobooks',
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    LiquidRevealRoute(
-                      page: const AudiobooksPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.music_note_rounded,
-                label: 'Music',
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MusicPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.animation_rounded,
-                label: 'Anime',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.extension_rounded,
-                label: 'Addons',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.download_rounded,
-                label: 'Downloads',
-                onTap: () {},
-              ),
-              DockItem(
-                icon: Icons.favorite_rounded,
-                label: 'My List',
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    LiquidRevealRoute(
-                      page: const MyListPage(),
-                      tapPosition: null,
-                    ),
-                  );
-                },
-              ),
-              DockItem(
-                icon: Icons.settings_rounded,
-                label: 'Settings',
-                onTap: () => _navigateToSettings(null),
-              ),
-              DockItem(
-                icon: Icons.search_rounded,
-                label: 'Search',
-                onTap: () => _navigateToSearch(null),
-              ),
-            ],
+        top: 16,
+        right: 16,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.35),
+            shape: BoxShape.circle,
           ),
+          child: const PageSearchButton(),
         ),
       ),
     ];
@@ -449,130 +324,6 @@ class _AnimePageState extends State<AnimePage> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Frosted Glass App Bar for Anime (Matching Home Page GlassAppBar)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AnimeGlassAppBar extends StatelessWidget {
-  final double topPadding;
-  final void Function(Offset?) onSearchTap;
-  final void Function(Offset?) onSettingsTap;
-
-  const _AnimeGlassAppBar({
-    required this.topPadding,
-    required this.onSearchTap,
-    required this.onSettingsTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: Container(
-        padding: EdgeInsets.only(
-          top: topPadding + 10,
-          bottom: 14,
-          left: 20,
-          right: 8,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: const [Color(0xF5080A0F), Color(0xE6080A0F)],
-          ),
-          border: Border(
-            bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-          ),
-        ),
-        child: Row(
-          children: [
-            // Back button
-            IconButton(
-              icon: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-              onPressed: () => Navigator.pop(context),
-            ),
-            const SizedBox(width: 4),
-
-            // Logo
-            Image.asset(
-              'assets/icon.png',
-              width: 32,
-              height: 32,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(width: 10),
-            RichText(
-              text: const TextSpan(
-                text: 'PlayTorrio ',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                  color: Colors.white,
-                ),
-                children: [
-                  TextSpan(
-                    text: 'Anime',
-                    style: TextStyle(
-                      color: Color(0xFF7C5CFF),
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(),
-
-            // Search Button
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  icon: Icon(
-                    Icons.search_rounded,
-                    color: Colors.white.withValues(alpha: 0.65),
-                    size: 25,
-                  ),
-                  onPressed: () {
-                    final box = context.findRenderObject() as RenderBox?;
-                    final offset = box != null
-                        ? box.localToGlobal(box.size.center(Offset.zero))
-                        : null;
-                    onSearchTap(offset);
-                  },
-                );
-              },
-            ),
-
-            // Settings Button
-            Builder(
-              builder: (context) {
-                return IconButton(
-                  icon: Icon(
-                    Icons.settings_rounded,
-                    color: Colors.white.withValues(alpha: 0.65),
-                    size: 24,
-                  ),
-                  onPressed: () {
-                    final box = context.findRenderObject() as RenderBox?;
-                    final offset = box != null
-                        ? box.localToGlobal(box.size.center(Offset.zero))
-                        : null;
-                    onSettingsTap(offset);
-                  },
-                );
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -43,7 +43,6 @@ class AnimeDetailsPage extends StatefulWidget {
 class _AnimeDetailsPageState extends State<AnimeDetailsPage>
     with SingleTickerProviderStateMixin {
   late AnimeMedia _anime;
-  bool _isLoading = true;
   bool _isDub = false;
   bool _isSynopsisExpanded = false;
 
@@ -117,7 +116,6 @@ class _AnimeDetailsPageState extends State<AnimeDetailsPage>
     if (mounted) {
       setState(() {
         if (full != null) _anime = full;
-        _isLoading = false;
       });
       _animController.forward();
 

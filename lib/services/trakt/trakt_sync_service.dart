@@ -150,4 +150,51 @@ class TraktSyncService {
     MyListService.remove(item);
     return true;
   }
+
+  /// Automatically scrobbles playback progress to Trakt
+  static Future<void> scrobblePlayback({
+    required String action,
+    required double progressPercent,
+    required String title,
+    String? imdbId,
+    int? tmdbId,
+    int? season,
+    int? episode,
+    String type = 'movie',
+  }) async {
+    final auth = TraktAuthService();
+    if (!auth.isLoggedIn.value) return;
+
+    final ids = <String, dynamic>{
+      if (imdbId != null && imdbId.isNotEmpty) 'imdb': imdbId,
+      if (tmdbId != null) 'tmdb': tmdbId,
+    };
+
+    if (type == 'series' || type == 'anime') {
+      final showMap = <String, dynamic>{
+        'title': title,
+        if (ids.isNotEmpty) 'ids': ids,
+      };
+      final episodeMap = <String, dynamic>{
+        if (season != null) 'season': season,
+        if (episode != null) 'number': episode,
+      };
+      await TraktApiService.scrobble(
+        action: action,
+        progress: progressPercent,
+        show: showMap,
+        episode: episodeMap,
+      );
+    } else {
+      final movieMap = <String, dynamic>{
+        'title': title,
+        if (ids.isNotEmpty) 'ids': ids,
+      };
+      await TraktApiService.scrobble(
+        action: action,
+        progress: progressPercent,
+        movie: movieMap,
+      );
+    }
+  }
 }

@@ -2,9 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../models/movie/movie.dart';
-import '../../models/movie/link.dart';
-import '../../models/movie/video.dart';
-import '../../models/movie/movie_detail.dart';
 import '../../models/movie/movie_section.dart';
 import '../../services/metadata/metadata_service.dart';
 import '../../widgets/common/error_view.dart';

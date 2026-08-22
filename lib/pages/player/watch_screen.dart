@@ -16,6 +16,7 @@ import '../../models/stream/stream_model.dart';
 import './player_screen.dart';
 import '../../services/stream/stream_service.dart';
 import '../../services/glass_settings.dart';
+import '../../utils/fullscreen_navigator.dart';
 import '../../widgets/common/performance_liquid_lens.dart';
 import '../settings/settings_page.dart';
 import '../details/details_page.dart';
@@ -143,6 +144,34 @@ class _WatchScreenState extends State<WatchScreen>
       _sources.addAll(batch);
       _isLoadingSources = false;
     });
+  }
+
+  /// Called by the player's auto-next dialog. Pops the player and re-opens the
+  /// watch screen for the next episode (season/episode +1).
+  void _playNextEpisode() {
+    final ep = widget.selectedEpisode;
+    if (ep == null) return;
+
+    final nextEpisode = Video(
+      id: ep.id,
+      title: ep.title,
+      season: ep.season,
+      episode: (ep.episode ?? 0) + 1,
+      released: ep.released,
+      thumbnail: ep.thumbnail,
+      overview: ep.overview,
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WatchScreen(
+          detail: widget.detail,
+          selectedEpisode: nextEpisode,
+          type: widget.type,
+        ),
+      ),
+    );
   }
 
   String? _selectedAddonFilter;
@@ -414,6 +443,7 @@ class _WatchScreenState extends State<WatchScreen>
                         logoUrl: widget.detail.logo,
                         detail: widget.detail,
                         episode: widget.selectedEpisode,
+                        onNextEpisode: _playNextEpisode,
                       ),
                     );
                   },
@@ -943,6 +973,7 @@ class _WatchScreenState extends State<WatchScreen>
           logoUrl: widget.detail.logo,
           detail: widget.detail,
           episode: widget.selectedEpisode,
+          onNextEpisode: _playNextEpisode,
         );
       },
     );
@@ -1194,6 +1225,7 @@ class _SourceCard extends StatefulWidget {
   final String? logoUrl;
   final MovieDetail detail;
   final Video? episode;
+  final VoidCallback? onNextEpisode;
 
   const _SourceCard({
     required this.source,
@@ -1201,6 +1233,7 @@ class _SourceCard extends StatefulWidget {
     this.logoUrl,
     required this.detail,
     this.episode,
+    this.onNextEpisode,
   });
 
   @override
@@ -1286,8 +1319,7 @@ class _SourceCardState extends State<_SourceCard> {
                 }
               }
 
-              Navigator.push(
-                context,
+              pushFullscreen(
                 MaterialPageRoute(
                   builder: (_) => PlayerScreen(
                     source: s,
@@ -1296,6 +1328,7 @@ class _SourceCardState extends State<_SourceCard> {
                     logoUrl: widget.logoUrl,
                     detail: widget.detail,
                     episode: widget.episode,
+                    onNextEpisode: widget.onNextEpisode,
                   ),
                 ),
               );

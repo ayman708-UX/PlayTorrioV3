@@ -6,6 +6,7 @@ import '../../models/manga/manga.dart';
 import '../../models/manga/manga_chapter.dart';
 import '../../services/manga/manga_service.dart';
 import '../../widgets/common/custom_scroll_track.dart';
+import '../../widgets/common/page_search_button.dart';
 import '../../widgets/manga/manga_card.dart';
 import 'manga_reader_page.dart';
 
@@ -143,12 +144,6 @@ class _MangaPageState extends State<MangaPage> {
       });
     }
   }
-  
-  void _onSearchChanged(String query) {
-    if (_searchQuery == query) return;
-    _searchQuery = query;
-    _loadInitialData();
-  }
 
   void _resumeReading(Map<String, dynamic> historyEntry) {
     final mangaJson = historyEntry['manga'];
@@ -175,7 +170,7 @@ class _MangaPageState extends State<MangaPage> {
   @override
   Widget build(BuildContext context) {
     _screenWidth = MediaQuery.sizeOf(context).width;
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFF080A0F),
       body: LiquidGlassView(
@@ -184,9 +179,6 @@ class _MangaPageState extends State<MangaPage> {
         backgroundWidget: _buildScrollableContent(),
         child: Stack(
           children: [
-            // Top App Bar / Search
-            _buildAppBar(),
-            
             // Custom Scroll Track (Desktop only)
             if (_screenWidth > 800)
               Positioned(
@@ -201,14 +193,19 @@ class _MangaPageState extends State<MangaPage> {
   }
 
   Widget _buildScrollableContent() {
-    final sizing = MangaCardSizing.fromWidth(_screenWidth);
-    
+    // Guard against being laid out offstage with a zero width (e.g. inside an
+    // IndexedStack before it is shown). A SliverGrid asserts
+    // `crossAxisExtent > 0`, so showing the empty state avoids a crash.
+    final sizing = _screenWidth > 0
+        ? MangaCardSizing.fromWidth(_screenWidth)
+        : null;
+
     return CustomScrollView(
       controller: _scrollController,
       physics: const BouncingScrollPhysics(),
       slivers: [
         const SliverToBoxAdapter(
-          child: SizedBox(height: 120), // Spacer for top app bar
+          child: SizedBox(height: 100), // Spacer for top bar
         ),
         
         // ── Continue Reading ──
@@ -250,14 +247,21 @@ class _MangaPageState extends State<MangaPage> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
-            child: Text(
-              _searchQuery.isNotEmpty ? 'Search Results' : 'Discover',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.5,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _searchQuery.isNotEmpty ? 'Search Results' : 'Discover',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+                const PageSearchButton(),
+              ],
             ),
           ),
         ),
@@ -269,7 +273,7 @@ class _MangaPageState extends State<MangaPage> {
               child: CircularProgressIndicator(color: Colors.white),
             ),
           )
-        else if (_mangaList.isEmpty)
+        else if (_mangaList.isEmpty || sizing == null)
           const SliverFillRemaining(
             hasScrollBody: false,
             child: Center(
@@ -307,7 +311,7 @@ class _MangaPageState extends State<MangaPage> {
           ),
         
         const SliverToBoxAdapter(
-          child: SizedBox(height: 120), // Bottom padding for dock
+          child: SizedBox(height: 100), // Bottom padding
         ),
       ],
     );
@@ -442,86 +446,6 @@ class _MangaPageState extends State<MangaPage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildAppBar() {
-    return Positioned(
-      top: 24,
-      left: 24,
-      right: 24,
-      child: Row(
-        children: [
-          // Back Button
-          ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    width: 1.5,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
-                  splashRadius: 20,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          
-          // Search Bar
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16.0, sigmaY: 16.0),
-                child: Container(
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onSubmitted: _onSearchChanged,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    decoration: InputDecoration(
-                      hintText: 'Search Manga...',
-                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-                      prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.close_rounded, color: Colors.white54),
-                              onPressed: () {
-                                _searchController.clear();
-                                _onSearchChanged('');
-                              },
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          
-          // Spacer so search bar doesn't touch the right edge
-          if (_screenWidth > 800) const SizedBox(width: 120),
-        ],
       ),
     );
   }

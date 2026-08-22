@@ -18,6 +18,11 @@ namespace {
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
+/// Minimum window size (in logical pixels) to keep the UI usable on desktop.
+/// Prevents the window from being resized so small that the layout breaks.
+constexpr const int kMinWindowWidth = 360;
+constexpr const int kMinWindowHeight = 480;
+
 /// Registry key for app theme preference.
 ///
 /// A value of 0 indicates apps should use dark mode. A non-zero or missing
@@ -195,6 +200,18 @@ Win32Window::MessageHandler(HWND hwnd,
       SetWindowPos(hwnd, nullptr, newRectSize->left, newRectSize->top, newWidth,
                    newHeight, SWP_NOZORDER | SWP_NOACTIVATE);
 
+      return 0;
+    }
+    case WM_GETMINMAXINFO: {
+      // Enforce a minimum window size so the layout never collapses.
+      auto minmax_info = reinterpret_cast<MINMAXINFO*>(lparam);
+      UINT dpi = FlutterDesktopGetDpiForMonitor(
+          MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST));
+      double scale_factor = dpi / 96.0;
+      minmax_info->ptMinTrackSize.x =
+          Scale(kMinWindowWidth, scale_factor);
+      minmax_info->ptMinTrackSize.y =
+          Scale(kMinWindowHeight, scale_factor);
       return 0;
     }
     case WM_SIZE: {

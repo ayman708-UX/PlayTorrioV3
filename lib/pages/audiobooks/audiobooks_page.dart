@@ -4,10 +4,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/audiobook/audiobook_model.dart';
+import '../../services/audiobook/audiobook_player_controller.dart';
 import '../../services/audiobook/audiobook_progress_service.dart';
 import '../../services/audiobook/audiobook_scraper_service.dart';
+import '../../widgets/common/page_search_button.dart';
 import 'audiobook_detail_page.dart';
-import 'audiobook_player_screen.dart';
 import 'audiobook_route_transitions.dart';
 
 class AudiobooksPage extends StatefulWidget {
@@ -71,15 +72,6 @@ class _AudiobooksPageState extends State<AudiobooksPage> {
     _continueScrollController.dispose();
     _searchDebounce?.cancel();
     super.dispose();
-  }
-
-  void _onSearchChanged(String query) {
-    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
-      if (mounted && query.trim().isNotEmpty) {
-        _performSearch(query);
-      }
-    });
   }
 
   Future<void> _performSearch(String query) async {
@@ -155,108 +147,25 @@ class _AudiobooksPageState extends State<AudiobooksPage> {
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // Top Header Bar
+              // Title row with search
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 48, 24, 16),
+                  padding: const EdgeInsets.fromLTRB(24, 8, 12, 8),
                   child: Row(
                     children: [
-                      // Back to Home
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.1),
-                          padding: const EdgeInsets.all(12),
+                      const Expanded(
+                        child: Text(
+                          'Audiobooks',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      // Glowing Headphones Icon
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF7C5CFF), Color(0xFF38BDF8)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF7C5CFF).withOpacity(0.5),
-                              blurRadius: 16,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.headphones_rounded,
-                          color: Colors.white,
-                          size: 26,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      // Title
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Audiobooks',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          Text(
-                            'Listen to thousands of free stories & books',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
+                      const PageSearchButton(),
                     ],
-                  ),
-                ),
-              ),
-
-              // Search Bar
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF12151E).withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                      textInputAction: TextInputAction.search,
-                      onChanged: _onSearchChanged,
-                      onSubmitted: _performSearch,
-                      decoration: InputDecoration(
-                        hintText: 'Search audiobooks by title or author...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFA78BFA)),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear_rounded, color: Colors.white54),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {});
-                                },
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      ),
-                    ),
                   ),
                 ),
               ),
@@ -329,6 +238,8 @@ class _AudiobooksPageState extends State<AudiobooksPage> {
                 ),
             ],
           ),
+
+          // Persistent Bottom Navigation Dock
         ],
       ),
     );
@@ -390,16 +301,12 @@ class _AudiobooksPageState extends State<AudiobooksPage> {
                     _loadContinueListening();
                   },
                   onTap: () async {
-                    await Navigator.push(
-                      context,
-                      AudiobookPageRoute(
-                        page: AudiobookPlayerScreen(
-                          audiobook: item.audiobook,
-                          chapters: item.chapters,
-                          initialChapterIndex: item.chapterIndex,
-                          initialPosition: Duration(milliseconds: item.positionMs),
-                        ),
-                      ),
+                    // Resume in the background so the bottom play bar appears.
+                    AudiobookPlayerController.instance.play(
+                      item.audiobook,
+                      item.chapters,
+                      chapterIndex: item.chapterIndex,
+                      initialPosition: Duration(milliseconds: item.positionMs),
                     );
                     _loadContinueListening();
                   },

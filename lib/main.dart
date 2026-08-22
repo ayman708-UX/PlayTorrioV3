@@ -3,14 +3,20 @@ import 'package:flutter/services.dart';
 
 import 'package:fvp/fvp.dart' as fvp;
 
-import './pages/home/home_page.dart';
 import './services/addon/addon_manager.dart';
 import './services/app_updater_service.dart';
+import './services/audiobook/audiobook_library_service.dart';
+import './services/debrid/debrid_service.dart';
+import './services/download/download_service.dart';
 import './services/glass_settings.dart';
 import './services/my_list/my_list_service.dart';
+import './services/playback/playback_history_service.dart';
+import './services/player_settings.dart';
 import './services/trakt/trakt_auth_service.dart';
 import './services/trakt/trakt_sync_service.dart';
 import './widgets/update_dialog.dart';
+import './widgets/common/global_shortcuts.dart';
+import './pages/hub/hub_page.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -28,8 +34,13 @@ void main() async {
   });
   await Future.wait([
     AddonManager.instance.initialize(),
+    AudiobookLibraryService.instance.init(),
+    DebridService.instance.initialize(),
+    DownloadService.initialize(),
     GlassSettings.initialize(),
     MyListService.initialize(),
+    PlaybackHistoryService.initialize(),
+    PlayerSettings.initialize(),
     TraktAuthService().initialize(),
     TraktSyncService.initialize(),
   ]);
@@ -110,7 +121,7 @@ class _PlayTorrioAppState extends State<PlayTorrioApp>
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         overscroll: false,
       ),
-      home: const HomePage(),
+      home: const GlobalShortcuts(child: HubPage()),
     );
   }
 }

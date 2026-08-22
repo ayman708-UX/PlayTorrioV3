@@ -2,10 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/movie/movie.dart';
-import '../../models/movie/link.dart';
-import '../../models/movie/video.dart';
-import '../../models/movie/movie_detail.dart';
-import '../../models/movie/movie_section.dart';
 import '../../pages/details/details_page.dart';
 import '../../utils/route_transitions.dart';
 import '../common/poster_skeleton.dart';

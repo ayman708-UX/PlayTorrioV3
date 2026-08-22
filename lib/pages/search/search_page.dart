@@ -2,12 +2,9 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-import '../../models/movie/movie.dart';
-import '../../models/movie/link.dart';
-import '../../models/movie/video.dart';
-import '../../models/movie/movie_detail.dart';
 import '../../models/movie/movie_section.dart';
 import '../../services/addon/addon_manager.dart';
+import '../../utils/search_scope.dart';
 import '../../widgets/movie/movie_slider_section.dart';
 
 class SearchPage extends StatefulWidget {
@@ -61,7 +58,10 @@ class _SearchPageState extends State<SearchPage> {
     });
 
     try {
-      final results = await AddonManager.instance.searchAll(query);
+      final results = await AddonManager.instance.searchAll(
+        query,
+        contentType: SearchScope.contentType,
+      );
       if (!mounted) return;
       
       setState(() {
@@ -139,7 +139,9 @@ class _SearchPageState extends State<SearchPage> {
                           onChanged: _onSearchChanged,
                           onSubmitted: _performSearch,
                           decoration: InputDecoration(
-                            hintText: 'Search movies, shows...',
+                            hintText: SearchScope.label != null
+                                ? 'Search ${SearchScope.label}...'
+                                : 'Search movies, shows...',
                             hintStyle: TextStyle(
                               color: Colors.white.withValues(alpha: 0.35),
                               fontSize: 15,
@@ -227,7 +229,9 @@ class _SearchPageState extends State<SearchPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Search across all addons',
+                    SearchScope.label != null
+                        ? 'Search ${SearchScope.label}'
+                        : 'Search across all addons',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.4),
                       fontSize: 16,

@@ -84,4 +84,33 @@ class TraktApiService {
     }
     return null;
   }
+
+  /// Scrobble watching/progress/pause/stop to Trakt.
+  /// [action]: 'start', 'pause', 'stop'
+  /// [progress]: 0.0 to 100.0 percent
+  static Future<bool> scrobble({
+    required String action,
+    required double progress,
+    Map<String, dynamic>? movie,
+    Map<String, dynamic>? show,
+    Map<String, dynamic>? episode,
+  }) async {
+    final headers = await _headers();
+    final uri = Uri.parse('$_baseUrl/scrobble/$action');
+    final payload = <String, dynamic>{
+      'progress': progress.clamp(0.0, 100.0),
+      if (movie != null) 'movie': movie,
+      if (show != null) 'show': show,
+      if (episode != null) 'episode': episode,
+    };
+
+    try {
+      final response = await http
+          .post(uri, headers: headers, body: jsonEncode(payload))
+          .timeout(const Duration(seconds: 8));
+      return response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
 }

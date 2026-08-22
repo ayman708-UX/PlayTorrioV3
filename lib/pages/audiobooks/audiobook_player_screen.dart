@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../models/audiobook/audiobook_model.dart';
 import '../../services/audiobook/audiobook_progress_service.dart';
+import '../../services/playback_coordinator.dart';
 import '../../services/stream/torrent_stream_service.dart';
 
 class AudiobookPlayerScreen extends StatefulWidget {
@@ -72,6 +73,9 @@ class _AudiobookPlayerScreenState extends State<AudiobookPlayerScreen> with Sing
   void dispose() {
     _saveProgress();
     _progressTimer?.cancel();
+    PlaybackCoordinator.release(
+      'audiobook:${widget.audiobook.uuid}:$_currentChapterIndex',
+    );
     _controller?.removeListener(_onPlayerStateChanged);
     _controller?.dispose();
     _discAnimController.dispose();
@@ -93,6 +97,27 @@ class _AudiobookPlayerScreenState extends State<AudiobookPlayerScreen> with Sing
 
   Future<void> _initChapter(int index) async {
     if (index < 0 || index >= widget.chapters.length) return;
+
+    // Ensure only one source plays app-wide: stop any other active source.
+    final sourceId = 'audiobook:${widget.audiobook.uuid}:$index';
+    PlaybackCoordinator.activate(
+      sourceId,
+      () {
+        _controller?.pause();
+      },
+      kind: 'audiobook',
+      title: widget.audiobook.title,
+      subtitle: widget.chapters[index].title,
+      coverUrl: widget.audiobook.coverImage,
+      onTogglePlayPause: () {
+        if (_controller == null) return;
+        if (_controller!.value.isPlaying) {
+          _controller!.pause();
+        } else {
+          _controller!.play();
+        }
+      },
+    );
 
     // Save progress before switching
     _saveProgress();

@@ -10,8 +10,13 @@ import 'package:playtorrio/models/subtitle/subtitle_model.dart';
 import 'package:playtorrio/services/subtitles/subtitle_service.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
+import '../../models/playback/playback_history_item.dart';
 import '../../models/stream/stream_model.dart';
+import '../../services/playback/playback_history_service.dart';
+import '../../services/playback_coordinator.dart';
+import '../../services/player_settings.dart';
 import '../../services/stream/torrent_stream_service.dart';
+import '../../services/trakt/trakt_sync_service.dart';
 import '../../services/glass_settings.dart';
 import '../../widgets/common/performance_liquid_lens.dart';
 import 'package:fvp/fvp.dart';
@@ -23,6 +28,7 @@ class PlayerScreen extends StatefulWidget {
   final String? logoUrl;
   final MovieDetail? detail;
   final Video? episode;
+  final VoidCallback? onNextEpisode;
 
   const PlayerScreen({
     super.key,
@@ -32,6 +38,7 @@ class PlayerScreen extends StatefulWidget {
     this.logoUrl,
     this.detail,
     this.episode,
+    this.onNextEpisode,
   });
 
   @override
@@ -55,6 +62,26 @@ class _PlayerScreenState extends State<PlayerScreen>
   double _volume = 1.0;
   BoxFit _videoFit = BoxFit.contain;
 
+  // ── Gesture state (volume / brightness swipes) ──
+  double _brightness = 1.0;
+  bool _showGestureIndicator = false;
+  String _gestureIndicatorLabel = '';
+  double _gestureIndicatorValue = 0.0;
+  IconData _gestureIndicatorIcon = Icons.volume_up_rounded;
+  Timer? _gestureIndicatorTimer;
+  Offset? _gestureStartPosition;
+  double _gestureStartVolume = 1.0;
+  double _gestureStartBrightness = 1.0;
+
+  // ── Auto-next episode state ──
+  bool _autoNextShown = false;
+  bool _autoNextDialogVisible = false;
+  int _autoNextCountdown = 10;
+  Timer? _autoNextTimer;
+
+  // ── Accessibility / keyboard focus ──
+  final FocusNode _focusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -68,10 +95,34 @@ class _PlayerScreenState extends State<PlayerScreen>
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
   }
 
   Future<void> _initStream() async {
     String? streamUrl;
+
+    // Ensure only one source plays app-wide: stop any other active source.
+    final sourceId = 'video:${widget.episode?.id ?? widget.detail?.id ?? widget.source.url}';
+    PlaybackCoordinator.activate(
+      sourceId,
+      () {
+        _controller?.pause();
+      },
+      kind: 'video',
+      title: widget.title,
+      subtitle: widget.episode?.title ?? widget.detail?.name,
+      coverUrl: widget.backdropUrl,
+      onTogglePlayPause: () {
+        if (_controller == null) return;
+        if (_controller!.value.isPlaying) {
+          _controller!.pause();
+        } else {
+          _controller!.play();
+        }
+      },
+    );
 
     print('[PlayerScreen] Initializing playback:');
     print('[PlayerScreen]   Title: ${widget.title}');
@@ -133,7 +184,14 @@ class _PlayerScreenState extends State<PlayerScreen>
         cleanUri,
         httpHeaders: playerHeaders,
       );
-      await _controller!.initialize();
+      await _controller!.initialize().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw TimeoutException(
+            'Stream connection timed out after 15 seconds. The host server may be slow or offline.',
+          );
+        },
+      );
 
       print(
         '[PlayerScreen SUCCESS] Video controller initialized successfully for $streamUrl',
@@ -144,6 +202,17 @@ class _PlayerScreenState extends State<PlayerScreen>
         _isLoading = false;
       });
 
+      // Resume from history if previously watched
+      if (widget.detail != null) {
+        final historyItem = PlaybackHistoryService.getProgress(
+          widget.episode?.id ?? widget.detail!.id,
+        );
+        if (historyItem != null && historyItem.position.inSeconds > 10) {
+          _controller!.seekTo(historyItem.position);
+        }
+      }
+
+      _controller!.addListener(_onPlaybackUpdate);
       _controller!.play();
       _startHideControlsTimer();
     } catch (e, stackTrace) {
@@ -168,6 +237,181 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
+  void _onPlaybackUpdate() {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+
+    // ── Auto-next episode: detect end-of-credits ──
+    if (widget.episode != null &&
+        widget.onNextEpisode != null &&
+        PlayerSettings.autoNextEnabled.value &&
+        !_autoNextShown &&
+        !_autoNextDialogVisible) {
+      final pos = _controller!.value.position;
+      final dur = _controller!.value.duration;
+      if (dur.inSeconds > 0 &&
+          pos.inSeconds >= dur.inSeconds - 15 &&
+          pos.inSeconds > 0) {
+        _autoNextShown = true;
+        _showAutoNextDialog();
+      }
+    }
+
+    if (widget.detail != null) {
+      final pos = _controller!.value.position;
+      final dur = _controller!.value.duration;
+      if (dur.inSeconds > 0 && pos.inSeconds % 5 == 0) {
+        final itemId = widget.episode?.id ?? widget.detail!.id;
+        final historyItem = PlaybackHistoryItem(
+          id: itemId,
+          title: widget.detail!.name,
+          poster: widget.detail!.poster,
+          backdrop: widget.backdropUrl,
+          type: widget.detail!.type,
+          episodeTitle: widget.episode?.title,
+          seasonNumber: widget.episode?.season,
+          episodeNumber: widget.episode?.episode,
+          position: pos,
+          duration: dur,
+          lastWatched: DateTime.now(),
+        );
+        PlaybackHistoryService.saveProgress(historyItem);
+
+        // Scrobble progress to Trakt every 15s or when complete
+        if (pos.inSeconds % 15 == 0 || historyItem.isCompleted) {
+          final progressPercent = (pos.inMilliseconds / dur.inMilliseconds) * 100.0;
+          TraktSyncService.scrobblePlayback(
+            action: historyItem.isCompleted ? 'stop' : 'start',
+            progressPercent: progressPercent,
+            title: widget.detail!.name,
+            imdbId: widget.detail!.id.startsWith('tt') ? widget.detail!.id : null,
+            tmdbId: widget.detail!.tmdbId != null ? int.tryParse(widget.detail!.tmdbId!) : null,
+            season: widget.episode?.season,
+            episode: widget.episode?.episode,
+            type: widget.detail!.type,
+          );
+        }
+      }
+    }
+  }
+
+  /// Shows a countdown dialog near the end of an episode offering to play the
+  /// next episode. Auto-plays after the countdown unless the user cancels.
+  void _showAutoNextDialog() {
+    if (!mounted || _autoNextDialogVisible) return;
+    _autoNextDialogVisible = true;
+    _autoNextCountdown = 10;
+
+    _autoNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _autoNextCountdown--;
+      });
+      if (_autoNextCountdown <= 0) {
+        timer.cancel();
+        _playNextEpisode();
+      }
+    });
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF13151C),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(
+                  color: const Color(0xFF7C5CFF).withValues(alpha: 0.3),
+                ),
+              ),
+              title: const Row(
+                children: [
+                  Icon(
+                    Icons.skip_next_rounded,
+                    color: Color(0xFF7C5CFF),
+                    size: 26,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Up Next',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Playing next episode in $_autoNextCountdown seconds...',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'S${widget.episode?.season ?? '?'}E${(widget.episode?.episode ?? 0) + 1}',
+                    style: const TextStyle(
+                      color: Color(0xFF7C5CFF),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    _autoNextTimer?.cancel();
+                    setDialogState(() {});
+                    Navigator.pop(dialogContext);
+                    _autoNextDialogVisible = false;
+                  },
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C5CFF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () {
+                    _autoNextTimer?.cancel();
+                    Navigator.pop(dialogContext);
+                    _autoNextDialogVisible = false;
+                    _playNextEpisode();
+                  },
+                  child: const Text(
+                    'Play Next',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _playNextEpisode() {
+    _autoNextTimer?.cancel();
+    _autoNextDialogVisible = false;
+    widget.onNextEpisode?.call();
+  }
+
   void _startHideControlsTimer() {
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(seconds: 3), () {
@@ -185,6 +429,56 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (_showControls) _startHideControlsTimer();
   }
 
+  /// Keyboard/remote control for the player: space = play/pause, arrows = seek,
+  /// M = mute, F = cycle aspect ratio, Esc = back.
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return;
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.space) {
+      setState(() {
+        if (controller.value.isPlaying) {
+          controller.pause();
+        } else {
+          controller.play();
+        }
+      });
+      _startHideControlsTimer();
+    } else if (key == LogicalKeyboardKey.arrowRight) {
+      controller.seekTo(controller.value.position + const Duration(seconds: 10));
+      _startHideControlsTimer();
+    } else if (key == LogicalKeyboardKey.arrowLeft) {
+      final pos = controller.value.position - const Duration(seconds: 10);
+      controller.seekTo(pos.inSeconds < 0 ? Duration.zero : pos);
+      _startHideControlsTimer();
+    } else if (key == LogicalKeyboardKey.keyM) {
+      setState(() {
+        _volume = _volume > 0 ? 0.0 : 1.0;
+      });
+      VideoPlayerPlatform.instance.setVolume(
+        // ignore: invalid_use_of_visible_for_testing_member
+        controller.playerId,
+        _volume,
+      );
+      _startHideControlsTimer();
+    } else if (key == LogicalKeyboardKey.keyF) {
+      setState(() {
+        if (_videoFit == BoxFit.contain) {
+          _videoFit = BoxFit.cover;
+        } else if (_videoFit == BoxFit.cover) {
+          _videoFit = BoxFit.fill;
+        } else {
+          _videoFit = BoxFit.contain;
+        }
+      });
+      _startHideControlsTimer();
+    } else if (key == LogicalKeyboardKey.escape) {
+      Navigator.pop(context);
+    }
+  }
+
   void _handlePointerActivity() {
     if (_isLoading) return;
     if (!_showControls) setState(() => _showControls = true);
@@ -196,6 +490,81 @@ class _PlayerScreenState extends State<PlayerScreen>
       _lastPointerTimerReset = now;
       _startHideControlsTimer();
     }
+  }
+
+  // ── Gesture handlers: vertical swipe left = volume, right = brightness ──
+
+  void _onVerticalDragStart(DragStartDetails details) {
+    if (_isLoading || _controller == null) return;
+    _gestureStartPosition = details.globalPosition;
+    _gestureStartVolume = _volume;
+    _gestureStartBrightness = _brightness;
+    _hideTimer?.cancel();
+  }
+
+  void _onVerticalDragUpdate(DragUpdateDetails details) {
+    if (_isLoading || _controller == null || _gestureStartPosition == null) {
+      return;
+    }
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    if (screenHeight <= 0) return;
+
+    final delta = details.globalPosition.dy - _gestureStartPosition!.dy;
+    final normalized = (delta / screenHeight).clamp(-1.0, 1.0);
+
+    // Left half of screen = volume, right half = brightness
+    final isLeftSide =
+        details.globalPosition.dx < MediaQuery.sizeOf(context).width / 2;
+
+    if (isLeftSide) {
+      final newVolume = (_gestureStartVolume - normalized).clamp(0.0, 3.0);
+      _volume = newVolume;
+      final controller = _controller;
+      if (controller != null) {
+        VideoPlayerPlatform.instance.setVolume(
+          // ignore: invalid_use_of_visible_for_testing_member
+          controller.playerId,
+          newVolume,
+        );
+      }
+      _updateGestureIndicator(
+        label: 'Volume',
+        value: newVolume / 3.0,
+        icon: newVolume == 0
+            ? Icons.volume_off_rounded
+            : Icons.volume_up_rounded,
+      );
+    } else {
+      final newBrightness = (_gestureStartBrightness - normalized).clamp(0.0, 1.0);
+      _brightness = newBrightness;
+      _updateGestureIndicator(
+        label: 'Brightness',
+        value: newBrightness,
+        icon: Icons.brightness_6_rounded,
+      );
+    }
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    _gestureStartPosition = null;
+    _startHideControlsTimer();
+  }
+
+  void _updateGestureIndicator({
+    required String label,
+    required double value,
+    required IconData icon,
+  }) {
+    _gestureIndicatorTimer?.cancel();
+    setState(() {
+      _showGestureIndicator = true;
+      _gestureIndicatorLabel = label;
+      _gestureIndicatorValue = value.clamp(0.0, 1.0);
+      _gestureIndicatorIcon = icon;
+    });
+    _gestureIndicatorTimer = Timer(const Duration(milliseconds: 900), () {
+      if (mounted) setState(() => _showGestureIndicator = false);
+    });
   }
 
   Future<void> _loadSubtitle(SubtitleVariant variant) async {
@@ -641,13 +1010,22 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void dispose() {
     _hideTimer?.cancel();
+    _gestureIndicatorTimer?.cancel();
+    _autoNextTimer?.cancel();
+    _focusNode.dispose();
+    PlaybackCoordinator.release(
+      'video:${widget.episode?.id ?? widget.detail?.id ?? widget.source.url}',
+    );
+    if (_controller != null) {
+      _controller!.removeListener(_onPlaybackUpdate);
+      _controller!.dispose();
+    }
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    _controller?.dispose();
     _logoAnimController.dispose();
     TorrentStreamService().cleanup();
     super.dispose();
@@ -655,18 +1033,85 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: MouseRegion(
-        cursor: (_showControls || _isLoading)
-            ? SystemMouseCursors.basic
-            : SystemMouseCursors.none,
-        onHover: (_) => _handlePointerActivity(),
-        child: GestureDetector(
-          onTap: _toggleControls,
-          child: _buildPlayerBody(),
-        ),
-      ), // Closes MouseRegion
+    return KeyboardListener(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: MouseRegion(
+          cursor: (_showControls || _isLoading)
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.none,
+          onHover: (_) => _handlePointerActivity(),
+          child: GestureDetector(
+            onTap: _toggleControls,
+            onVerticalDragStart: _onVerticalDragStart,
+            onVerticalDragUpdate: _onVerticalDragUpdate,
+            onVerticalDragEnd: _onVerticalDragEnd,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildPlayerBody(),
+                // Brightness overlay (dim the screen)
+                if (_brightness < 1.0)
+                  IgnorePointer(
+                    child: Container(
+                      color: Colors.black.withValues(
+                        alpha: (1.0 - _brightness) * 0.9,
+                      ),
+                    ),
+                  ),
+                // Gesture indicator overlay
+                if (_showGestureIndicator)
+                  IgnorePointer(
+                    child: Center(
+                      child: _buildGestureIndicator(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ), // Closes MouseRegion
+      ),
+    );
+  }
+
+  Widget _buildGestureIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_gestureIndicatorIcon, color: Colors.white, size: 32),
+          const SizedBox(height: 10),
+          Text(
+            _gestureIndicatorLabel,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 140,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: _gestureIndicatorValue,
+                minHeight: 6,
+                backgroundColor: Colors.white24,
+                valueColor: const AlwaysStoppedAnimation(Color(0xFF7C5CFF)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -876,6 +1321,9 @@ class _PlayerScreenState extends State<PlayerScreen>
                 children: [
                   _AnimatedLiquidButton(
                     baseSize: 64,
+                    semanticLabel: _controller!.value.isPlaying
+                        ? 'Pause'
+                        : 'Play',
                     icon: Icon(
                       _controller!.value.isPlaying
                           ? Icons.pause_rounded
@@ -897,6 +1345,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   const SizedBox(width: 24),
                   _AnimatedLiquidButton(
                     baseSize: 48,
+                    semanticLabel: 'Rewind 10 seconds',
                     icon: const Icon(
                       Icons.replay_10_rounded,
                       color: Colors.white,
@@ -911,6 +1360,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   const SizedBox(width: 16),
                   _AnimatedLiquidButton(
                     baseSize: 48,
+                    semanticLabel: 'Forward 10 seconds',
                     icon: const Icon(
                       Icons.forward_10_rounded,
                       color: Colors.white,
@@ -931,6 +1381,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                 children: [
                   _AnimatedLiquidButton(
                     baseSize: 48,
+                    semanticLabel: 'Cycle aspect ratio',
                     icon: const Icon(
                       Icons.aspect_ratio_rounded,
                       color: Colors.white,
@@ -952,6 +1403,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   const SizedBox(width: 16),
                   _AnimatedLiquidButton(
                     baseSize: 48,
+                    semanticLabel: 'Subtitles',
                     icon: const Icon(
                       Icons.subtitles_rounded,
                       color: Colors.white,
@@ -965,6 +1417,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   const SizedBox(width: 16),
                   _AnimatedLiquidButton(
                     baseSize: 48,
+                    semanticLabel: 'Volume',
                     icon: Icon(
                       _volume == 0
                           ? Icons.volume_off_rounded
@@ -984,6 +1437,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   const SizedBox(width: 16),
                   _AnimatedLiquidButton(
                     baseSize: 48,
+                    semanticLabel: 'Player settings',
                     icon: const Icon(
                       Icons.settings_rounded,
                       color: Colors.white,
@@ -1039,11 +1493,13 @@ class _AnimatedLiquidButton extends StatefulWidget {
   final double baseSize;
   final Widget icon;
   final VoidCallback onPressed;
+  final String? semanticLabel;
 
   const _AnimatedLiquidButton({
     required this.baseSize,
     required this.icon,
     required this.onPressed,
+    this.semanticLabel,
   });
 
   @override
@@ -1161,10 +1617,14 @@ class _AnimatedLiquidButtonState extends State<_AnimatedLiquidButton> {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: ValueListenableBuilder<bool>(
-        valueListenable: GlassSettings.enabled,
-        builder: (context, enabled, _) =>
-            enabled ? _buildLiquid() : _buildOptimized(),
+      child: Semantics(
+        button: true,
+        label: widget.semanticLabel,
+        child: ValueListenableBuilder<bool>(
+          valueListenable: GlassSettings.enabled,
+          builder: (context, enabled, _) =>
+              enabled ? _buildLiquid() : _buildOptimized(),
+        ),
       ),
     );
   }

@@ -2,10 +2,6 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/movie/movie.dart';
-import '../../models/movie/link.dart';
-import '../../models/movie/video.dart';
-import '../../models/movie/movie_detail.dart';
 import '../../models/movie/movie_section.dart';
 import '../../pages/catalog/catalog_page.dart';
 import '../../utils/route_transitions.dart';

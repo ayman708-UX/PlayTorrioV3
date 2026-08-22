@@ -15,13 +15,20 @@ class Movie {
     required this.addonBaseUrl,
   });
 
-  factory Movie.fromJson(Map<String, dynamic> json, String addonBaseUrl) {
+  factory Movie.fromJson(
+    Map<String, dynamic> json,
+    String addonBaseUrl, {
+    String? fallbackType,
+  }) {
+    // Prefer the addon-provided type; fall back to the catalog type when the
+    // addon omits it (many Stremio addons don't set per-item type).
+    final type = json['type']?.toString() ?? fallbackType ?? 'movie';
     return Movie(
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Unknown',
       poster: json['poster']?.toString(),
       year: json['releaseInfo']?.toString() ?? json['year']?.toString(),
-      type: json['type']?.toString() ?? 'movie',
+      type: type,
       addonBaseUrl: addonBaseUrl,
     );
   }

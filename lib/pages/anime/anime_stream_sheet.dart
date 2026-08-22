@@ -4,6 +4,7 @@ import '../../models/anime/anime_media.dart';
 import '../../models/stream/stream_model.dart';
 import '../../services/anime/anime_scraper_service.dart';
 import '../../services/anime/anime_library_service.dart';
+import '../../utils/fullscreen_navigator.dart';
 import '../player/player_screen.dart';
 
 class AnimeStreamSheet extends StatefulWidget {
@@ -119,8 +120,7 @@ class _AnimeStreamSheetState extends State<AnimeStreamSheet> {
     final video =
         AnimeScraperService.toVideo(widget.anime, widget.episodeNumber);
 
-    Navigator.pushReplacement(
-      context,
+    pushFullscreenReplacement(
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
           source: source,

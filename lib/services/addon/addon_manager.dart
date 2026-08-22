@@ -217,14 +217,84 @@ class AddonManager {
         .toList();
   }
 
+  /// Fetch catalogs of a single content type (e.g. 'movie' or 'series') across
+  /// all active addons, so a section renders only content of that type.
+  ///
+  /// This is stricter than [fetchAllHomeSections] + client-side filtering:
+  /// it only requests catalogs whose manifest declares the requested type, so
+  /// a Series section never receives movie-typed catalogs.
+  Future<List<MovieSection>> fetchByType(String type) async {
+    final active = activeAddons;
+    final futures = <Future<MovieSection?>>[];
+
+    for (final addon in active) {
+      final typeCatalogs = addon.manifest.catalogs
+          .where((c) => c.type == type)
+          .toList();
+
+      for (final catalog in typeCatalogs) {
+        futures.add(() async {
+          try {
+            final movies = await MetadataService.fetchCatalog(
+              baseUrl: addon.baseUrl,
+              type: catalog.type,
+              catalogId: catalog.id,
+            );
+            if (movies.isEmpty) return null;
+
+            // Keep only items whose real type matches the requested type.
+            // Items now carry the catalog type as a fallback, so a movie-typed
+            // catalog that returns series is filtered out here.
+            final typedMovies = movies
+                .where((m) => m.type == type)
+                .map((m) => Movie(
+                      id: m.id,
+                      name: m.name,
+                      poster: m.poster,
+                      year: m.year,
+                      type: type,
+                      addonBaseUrl: m.addonBaseUrl,
+                    ))
+                .toList();
+            if (typedMovies.isEmpty) return null;
+
+            return MovieSection(
+              title: _catalogDisplayName(catalog),
+              subtitle: addon.manifest.name,
+              contentType: type,
+              addonBaseUrl: addon.baseUrl,
+              catalog: catalog,
+              movies: typedMovies,
+            );
+          } catch (_) {
+            return null; // Gracefully handle failure
+          }
+        }());
+      }
+    }
+
+    final results = await Future.wait(futures);
+    return results
+        .where((s) => s != null && s.movies.isNotEmpty)
+        .cast<MovieSection>()
+        .toList();
+  }
+
   /// Search across all active addons that support search.
-  Future<List<MovieSection>> searchAll(String query) async {
+  /// Search across all active addons.
+  ///
+  /// If [contentType] is provided (e.g. 'movie', 'series', 'anime'), only
+  /// catalogs of that type are searched, scoping results to a section.
+  Future<List<MovieSection>> searchAll(String query, {String? contentType}) async {
     final active = activeAddons;
     final futures = <Future<MovieSection?>>[];
 
     for (final addon in active) {
       final searchCatalogs = addon.manifest.catalogs
-          .where((c) => c.supportsSearch && (c.type == 'movie' || c.type == 'series' || c.type == 'anime'))
+          .where((c) =>
+              c.supportsSearch &&
+              (c.type == 'movie' || c.type == 'series' || c.type == 'anime') &&
+              (contentType == null || c.type == contentType))
           .toList();
 
       for (final catalog in searchCatalogs) {
