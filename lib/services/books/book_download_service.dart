@@ -91,7 +91,6 @@ class BookDownloadService {
 
     Exception? lastException;
     final client = HttpClient();
-    client.badCertificateCallback = (cert, host, port) => true;
 
     for (final urlStr in candidateUrls) {
       try {

@@ -12,8 +12,7 @@ class SubtitleCatProvider extends SubtitleProvider {
   String get name => 'SubtitleCat';
 
   final HttpClient _httpClient = HttpClient()
-    ..connectionTimeout = const Duration(seconds: 15)
-    ..badCertificateCallback = ((cert, host, port) => true);
+    ..connectionTimeout = const Duration(seconds: 15);
 
   @override
   Future<List<SubtitleVariant>> search(

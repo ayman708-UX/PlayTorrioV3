@@ -54,7 +54,6 @@ class TryEmbedExtractor {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36';
 
   final HttpClient _httpClient = HttpClient()
-    ..badCertificateCallback = ((cert, host, port) => true)
     ..connectionTimeout = const Duration(seconds: 10);
 
   /// Scrapes the video stream and subtitles from TryEmbed for an Anilist Anime ID and Episode.
