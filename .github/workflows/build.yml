@@ -389,6 +389,21 @@ jobs:
         with:
           merge-multiple: true
 
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          # Generate a SHA256SUMS file for every release asset so users can
+          # verify download integrity (mirrors the hashes shown on the release
+          # pages). The checksum file itself is also uploaded.
+          sha256sum *.exe *.zip *.apk *.AppImage *.tar.gz *.dmg *.ipa 2>/dev/null \
+            > SHA256SUMS || true
+          if [ ! -s SHA256SUMS ]; then
+            echo "No release assets found to checksum." >&2
+            exit 1
+          fi
+          echo "Generated SHA256SUMS:"
+          cat SHA256SUMS
+
       - name: Publish Release with Assets
         uses: softprops/action-gh-release@v2
         with:
@@ -404,3 +419,4 @@ jobs:
             *.tar.gz
             *.dmg
             *.ipa
+            SHA256SUMS
