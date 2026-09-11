@@ -9,15 +9,17 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import '../../services/theme/app_theme_service.dart';
 import '../../services/theme/dock_settings.dart';
 import '../../services/theme/glass_settings.dart';
-import '../../services/iptv/hardcoded_channels.dart';
 import '../../services/iptv/iptv_controller.dart';
 import '../../models/iptv/iptv_models.dart';
+import '../../services/iptv/iptv_storage.dart';
 import '../../services/player/player_settings.dart';
 import '../../widgets/common/animated_ambient_background.dart';
 import '../../widgets/common/app_liquid_dock.dart';
+import '../../widgets/iptv/multinutz_channel_sheet.dart';
+import '../../services/iptv/hardcoded_channels.dart';
 
 class MultiStreamCell {
-  final int index;
+  int index;
   final Player player;
   final VideoController controller;
   String? channelName;
@@ -25,6 +27,7 @@ class MultiStreamCell {
   List<ChannelHit>? availableHits;
   int? currentHitIndex;
   bool isMuted;
+  double volume;
   bool isScanning;
   bool isPlaying;
   String? statusText;
@@ -38,6 +41,7 @@ class MultiStreamCell {
     this.availableHits,
     this.currentHitIndex,
     this.isMuted = true,
+    this.volume = 0.5,
     this.isScanning = false,
     this.isPlaying = false,
     this.statusText,
@@ -51,12 +55,8 @@ enum MultiNutzLayout {
   vertical4('Vertical 4'),
   vertical5('Vertical 5'),
   vertical6('Vertical 6'),
-  horizontal2('Horizontal 2'),
-  horizontal3('Horizontal 3'),
   grid2x2('Grid 2x2'),
-  grid2x3('Grid 2x3'),
-  grid3x2('Grid 3x2'),
-  mixed3_3('Mixed 3+3');
+  grid2x3('Grid 2x3');
 
   final String label;
   const MultiNutzLayout(this.label);
@@ -69,17 +69,20 @@ class MultiNutzPage extends StatefulWidget {
   State<MultiNutzPage> createState() => _MultiNutzPageState();
 }
 
-class _MultiNutzPageState extends State<MultiNutzPage> {
+class _MultiNutzPageState extends State<MultiNutzPage>
+    with WidgetsBindingObserver {
   final List<MultiStreamCell> _cells = [];
   MultiNutzLayout _currentLayout = MultiNutzLayout.vertical3; // Default to 3 vertical
   int _activeCells = 3;
   int? _fullscreenIndex;
+  bool _isRearrangeMode = false;
 
   @override
   void initState() {
     super.initState();
     WakelockPlus.enable();
-    
+    WidgetsBinding.instance.addObserver(this);
+
     // Allow all orientations (portrait + landscape)
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
@@ -90,6 +93,7 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
     ]);
 
     _initPlayers();
+    _restoreSession();
   }
 
   void _initPlayers() {
@@ -110,6 +114,7 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
         player: player,
         controller: controller,
         isMuted: true,
+        volume: 0.5,
       );
 
       _cells.add(cell);
@@ -125,6 +130,89 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
     }
   }
 
+  Future<void> _restoreSession() async {
+    final saved = await MultiNutzSessionStore.load();
+    if (saved.isEmpty) return;
+    for (final state in saved) {
+      if (state.index >= _cells.length) continue;
+      final cell = _cells[state.index];
+      cell.channelName = state.channelName;
+      cell.streamUrl = state.streamUrl;
+      cell.volume = state.volume;
+      cell.isMuted = state.isMuted;
+      cell.isPlaying = state.wasPlaying;
+      cell.isScanning = true;
+      cell.statusText = 'Restoring...';
+      try {
+        await cell.player.open(Media(state.streamUrl!));
+        cell.player.setVolume(state.isMuted ? 0.0 : state.volume * 100.0);
+        if (state.wasPlaying) {
+          cell.player.play();
+        }
+        cell.isScanning = false;
+        cell.statusText = null;
+      } catch (_) {
+        cell.isScanning = false;
+        cell.statusText = 'Playback error';
+      }
+    }
+if (mounted) {
+        setState(() {});
+      }
+    }
+
+  Future<void> _saveSession() async {
+    final states = <MultiNutzCellState>[];
+    for (final cell in _cells) {
+      if (cell.streamUrl != null && cell.streamUrl!.isNotEmpty) {
+        states.add(MultiNutzCellState(
+          index: cell.index,
+          channelName: cell.channelName,
+          streamUrl: cell.streamUrl,
+          volume: cell.volume,
+          isMuted: cell.isMuted,
+          wasPlaying: cell.isPlaying,
+        ));
+      }
+    }
+    await MultiNutzSessionStore.save(states);
+  }
+
+  void _pauseAllPlayers() {
+    for (final cell in _cells) {
+      if (cell.streamUrl != null && cell.isPlaying) {
+        cell.player.pause();
+      }
+    }
+  }
+
+  void _resumeAllPlayers() {
+    for (final cell in _cells) {
+      if (cell.streamUrl != null && !cell.isPlaying) {
+        cell.player.play();
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.inactive:
+        _pauseAllPlayers();
+        _saveSession();
+        break;
+      case AppLifecycleState.resumed:
+        _resumeAllPlayers();
+        break;
+      case AppLifecycleState.detached:
+        _pauseAllPlayers();
+        _saveSession();
+        break;
+    }
+  }
+
   void _setLayout(MultiNutzLayout layout) {
     setState(() {
       _currentLayout = layout;
@@ -135,26 +223,22 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
           _activeCells = 1;
           break;
         case MultiNutzLayout.vertical2:
-        case MultiNutzLayout.horizontal2:
           _activeCells = 2;
           break;
         case MultiNutzLayout.vertical3:
+          _activeCells = 3;
+          break;
         case MultiNutzLayout.vertical4:
-        case MultiNutzLayout.vertical5:
-          _activeCells = 3;
-          break;
-        case MultiNutzLayout.horizontal3:
-        case MultiNutzLayout.mixed3_3:
-          _activeCells = 3;
-          break;
-        case MultiNutzLayout.grid2x2:
-        case MultiNutzLayout.grid3x2:
           _activeCells = 4;
           break;
-        case MultiNutzLayout.grid2x3:
-          _activeCells = 6;
+        case MultiNutzLayout.vertical5:
+          _activeCells = 5;
           break;
         case MultiNutzLayout.vertical6:
+        case MultiNutzLayout.grid2x2:
+          _activeCells = 6;
+          break;
+        case MultiNutzLayout.grid2x3:
           _activeCells = 6;
           break;
       }
@@ -174,68 +258,6 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
     final currentIndex = layouts.indexOf(_currentLayout);
     if (currentIndex < layouts.length - 1) {
       _setLayout(layouts[currentIndex + 1]);
-    }
-  }
-
-  Future<void> _loadStreamInCell(int index, HardcodedChannel channel) async {
-    if (index >= _cells.length) return;
-    final cell = _cells[index];
-    
-    setState(() {
-      cell.channelName = channel.name;
-      cell.isScanning = true;
-      cell.statusText = 'Discovering stream...';
-      cell.isPlaying = false;
-      cell.streamUrl = null;
-    });
-
-    try {
-      // 1. Open and scan channel portals via central controller
-      final ctrl = IptvController.instance;
-      await ctrl.openHardcodedChannel(channel);
-
-      // Check if we retrieved any active stream hits
-      List<ChannelHit> hits = ctrl.channelResults;
-      if (hits.isEmpty) {
-        // Trigger verification scanning if empty
-        await ctrl.runChannelScan(channel);
-        hits = ctrl.channelResults;
-      }
-
-      if (hits.isEmpty) {
-        if (mounted) {
-          setState(() {
-            cell.isScanning = false;
-            cell.statusText = 'No active feeds found';
-          });
-        }
-        return;
-      }
-
-      // 2. Store all available hits and play first one
-      if (mounted) {
-        setState(() {
-          cell.availableHits = hits;
-          cell.currentHitIndex = 0;
-          cell.streamUrl = hits.first.streamUrl;
-          cell.statusText = 'Connecting to feed...';
-        });
-      }
-
-      await cell.player.open(Media(hits.first.streamUrl));
-      if (mounted) {
-        setState(() {
-          cell.isScanning = false;
-          cell.statusText = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          cell.isScanning = false;
-          cell.statusText = 'Failed to load feed';
-        });
-      }
     }
   }
 
@@ -354,18 +376,20 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
 
   void _onCellVolumeToggle(int index) {
     if (index >= _cells.length) return;
+    final cell = _cells[index];
     setState(() {
-      for (int i = 0; i < _cells.length; i++) {
-        final c = _cells[i];
-        if (i == index) {
-          c.isMuted = !c.isMuted;
-          c.player.setVolume(c.isMuted ? 0.0 : 100.0);
-        } else {
-          // Keep other windows muted to prevent audio overlapping
-          c.isMuted = true;
-          c.player.setVolume(0.0);
-        }
-      }
+      cell.isMuted = !cell.isMuted;
+      cell.player.setVolume(cell.isMuted ? 0.0 : cell.volume * 100.0);
+    });
+  }
+
+  void _onCellVolumeChanged(int index, double value) {
+    if (index >= _cells.length) return;
+    final cell = _cells[index];
+    setState(() {
+      cell.volume = value;
+      cell.isMuted = value <= 0.01;
+      cell.player.setVolume(value * 100.0);
     });
   }
 
@@ -393,102 +417,271 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
     if (index >= _cells.length) return;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0C0F17),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        final palette = AppThemeService.currentPalette.value;
-        const iptvChannels = HardcodedChannels.all;
-
         return DefaultTabController(
-          length: 2,
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+          length: 4,
+          initialIndex: 2,
+          child: SafeArea(
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: const BoxDecoration(
+                color: Color(0xFF0C0F17),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
-              TabBar(
-                labelColor: palette.primaryColor,
-                unselectedLabelColor: Colors.white60,
-                indicatorColor: palette.primaryColor,
-                tabs: const [
-                  Tab(text: 'IPTV Channels'),
-                  Tab(text: 'Custom Stream URL'),
-                ],
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    // IPTV Channels List
-                    ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: iptvChannels.length,
-                      itemBuilder: (context, i) {
-                        final ch = iptvChannels[i];
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.04),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: ListTile(
-                            leading: ch.iconUrl != null
-                                ? Image.network(ch.iconUrl!, width: 32, height: 32, errorBuilder: (_, __, ___) => const Icon(Icons.tv, color: Colors.white70))
-                                : const Icon(Icons.tv, color: Colors.white70),
-                            title: Text(ch.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-                            subtitle: Text(ch.category, style: TextStyle(color: palette.accentColor.withValues(alpha: 0.6), fontSize: 11)),
-                            trailing: const Icon(Icons.add_rounded, color: Colors.white60),
-                            onTap: () {
-                              Navigator.pop(context);
-                              _loadStreamInCell(index, ch);
-                            },
-                          ),
-                        );
-                      },
+              child: Column(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
                     ),
-
-                    // Custom Stream URL Inputs
-                    Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Stream Details', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 16),
-                          TextField(
-                            autofocus: true,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: InputDecoration(
-                              labelText: 'Stream Name',
-                              labelStyle: const TextStyle(color: Colors.white60),
-                              enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white30), borderRadius: BorderRadius.circular(10)),
-                              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: palette.primaryColor), borderRadius: BorderRadius.circular(10)),
-                            ),
-                            onSubmitted: (nameVal) {
-                              // We trigger URL entry directly
-                              _promptForUrl(index, nameVal);
-                            },
-                          ),
-                        ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Text(
+                      'Select Channel',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: TabBar(
+                      labelColor: AppThemeService.currentPalette.value.primaryColor,
+                      unselectedLabelColor: Colors.white60,
+                      indicatorColor: AppThemeService.currentPalette.value.primaryColor,
+                      tabs: const [
+                        Tab(text: 'Xtreme'),
+                        Tab(text: 'M3U'),
+                        Tab(text: 'IPTV'),
+                        Tab(text: 'Custom URL'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        // Xtreme Playlist Tab
+                        MultiNutzChannelSheet(
+                          cellIndex: index,
+                          onChannelSelected: (url, name) => _loadXtremeM3uInCell(index, url, name),
+                          tabType: ChannelSheetTab.xtreme,
+                        ),
+                        // M3U Playlist Tab
+                        MultiNutzChannelSheet(
+                          cellIndex: index,
+                          onChannelSelected: (url, name) => _loadXtremeM3uInCell(index, url, name),
+                          tabType: ChannelSheetTab.m3u,
+                        ),
+                        // Hardcoded IPTV Channels Tab
+                        _buildHardcodedChannelsTab(index),
+                        // Custom URL Tab
+                        _buildCustomUrlTab(index),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
     );
   }
 
+  Widget _buildHardcodedChannelsTab(int index) {
+    final palette = AppThemeService.currentPalette.value;
+    const channels = HardcodedChannels.all;
+    return FutureBuilder<List<QuickChannel>>(
+      future: IptvQuickChannelStore.load(),
+      builder: (context, snapshot) {
+        final quickChannels = snapshot.data ?? const <QuickChannel>[];
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: channels.length + quickChannels.length,
+          itemBuilder: (context, i) {
+if (i < quickChannels.length) {
+              final qc = quickChannels[i];
+              final ch = HardcodedChannel(
+                id: 'qc_${qc.id}',
+                name: qc.name,
+                short: qc.short,
+                category: qc.category,
+                keywords: qc.keywords,
+                gradient: qc.gradient,
+                iconUrl: qc.iconUrl,
+              );
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: palette.primaryColor.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: palette.primaryColor.withValues(alpha: 0.2)),
+                ),
+                child: ListTile(
+                  leading: qc.iconUrl != null
+                      ? Image.network(qc.iconUrl!, width: 32, height: 32, errorBuilder: (_, __, ___) => const Icon(Icons.tv, color: Colors.white70))
+                      : const Icon(Icons.tv, color: Colors.white70),
+                  title: Text(qc.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                  subtitle: Text(qc.category, style: TextStyle(color: palette.accentColor.withValues(alpha: 0.6), fontSize: 11)),
+                  trailing: const Icon(Icons.add_rounded, color: Colors.white60),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _loadStreamInCell(index, ch);
+                  },
+                ),
+              );
+            }
+            final ch = channels[i - quickChannels.length];
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ListTile(
+                leading: ch.iconUrl != null
+                    ? Image.network(ch.iconUrl!, width: 32, height: 32, errorBuilder: (_, __, ___) => const Icon(Icons.tv, color: Colors.white70))
+                    : const Icon(Icons.tv, color: Colors.white70),
+                title: Text(ch.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                subtitle: Text(ch.category, style: TextStyle(color: palette.accentColor.withValues(alpha: 0.6), fontSize: 11)),
+                trailing: const Icon(Icons.add_rounded, color: Colors.white60),
+                onTap: () {
+                  Navigator.pop(context);
+                  _loadStreamInCell(index, ch);
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildCustomUrlTab(int index) {
+    final palette = AppThemeService.currentPalette.value;
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Stream Details', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          TextField(
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              labelText: 'Stream Name',
+              labelStyle: const TextStyle(color: Colors.white60),
+              enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white30), borderRadius: BorderRadius.circular(10)),
+              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: palette.primaryColor), borderRadius: BorderRadius.circular(10)),
+            ),
+            onSubmitted: (nameVal) {
+              _promptForUrl(index, nameVal);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _loadXtremeM3uInCell(int index, String url, String name) async {
+    if (index >= _cells.length) return;
+    final cell = _cells[index];
+    setState(() {
+      cell.channelName = name.isNotEmpty ? name : 'Live Stream';
+      cell.isScanning = true;
+      cell.statusText = 'Connecting...';
+      cell.streamUrl = url;
+    });
+
+    try {
+      await cell.player.open(Media(url));
+      if (mounted) {
+        setState(() {
+          cell.isScanning = false;
+          cell.statusText = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          cell.isScanning = false;
+          cell.statusText = 'Playback error';
+        });
+      }
+    }
+  }
+
+  Future<void> _loadStreamInCell(int index, HardcodedChannel channel) async {
+    if (index >= _cells.length) return;
+    final cell = _cells[index];
+    
+    setState(() {
+      cell.channelName = channel.name;
+      cell.isScanning = true;
+      cell.statusText = 'Discovering stream...';
+      cell.isPlaying = false;
+      cell.streamUrl = null;
+    });
+
+    try {
+      final ctrl = IptvController.instance;
+      await ctrl.openHardcodedChannel(channel);
+
+      List<ChannelHit> hits = ctrl.channelResults;
+      if (hits.isEmpty) {
+        await ctrl.runChannelScan(channel);
+        hits = ctrl.channelResults;
+      }
+
+      if (hits.isEmpty) {
+        if (mounted) {
+          setState(() {
+            cell.isScanning = false;
+            cell.statusText = 'No active feeds found';
+          });
+        }
+        return;
+      }
+
+      if (mounted) {
+        setState(() {
+          cell.availableHits = hits;
+          cell.currentHitIndex = 0;
+          cell.streamUrl = hits.first.streamUrl;
+          cell.statusText = 'Connecting to feed...';
+        });
+      }
+
+      await cell.player.open(Media(hits.first.streamUrl));
+      if (mounted) {
+        setState(() {
+          cell.isScanning = false;
+          cell.statusText = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          cell.isScanning = false;
+          cell.statusText = 'Failed to load feed';
+        });
+      }
+    }
+  }
+
   void _promptForUrl(int index, String name) {
     if (index >= _cells.length) return;
-    Navigator.pop(context); // Close the current modal sheet
+    Navigator.pop(context);
     final palette = AppThemeService.currentPalette.value;
     
     showDialog(
@@ -531,6 +724,59 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
     );
   }
 
+  void _reorderCells(int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return;
+    if (oldIndex >= _cells.length || newIndex >= _cells.length) return;
+    setState(() {
+      final oldCell = _cells[oldIndex];
+      final newCell = _cells[newIndex];
+      // Swap full cell objects so players/controllers travel with their content
+      _cells[oldIndex] = newCell;
+      _cells[newIndex] = oldCell;
+      oldCell.index = newIndex;
+      newCell.index = oldIndex;
+      if (_fullscreenIndex == oldIndex) _fullscreenIndex = newIndex;
+      else if (_fullscreenIndex == newIndex) _fullscreenIndex = oldIndex;
+    });
+    _saveSession();
+}
+
+  Widget _buildRearrangeGrid(int crossAxisCount, double childAspectRatio, double topPadding) {
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: topPadding + 88),
+      physics: const ClampingScrollPhysics(),
+      itemCount: _activeCells,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: DragTarget<int>(
+            builder: (context, accepted, rejected) {
+              return Draggable<int>(
+                data: index,
+                feedback: Material(
+                  color: Colors.transparent,
+                  child: Opacity(opacity: 0.8, child: _buildPlayerCell(_cells[index], false, isRearrangeMode: true)),
+                ),
+                childWhenDragging: Opacity(
+                  opacity: 0.3,
+                  child: _buildPlayerCell(_cells[index], false, isRearrangeMode: true),
+                ),
+                onDragEnd: (details) {
+                  // No-op; handled by DragTarget's onWillAccept/onAccept
+                },
+                child: _buildPlayerCell(_cells[index], false, isRearrangeMode: true),
+              );
+            },
+            onWillAccept: (fromIndex) => fromIndex != null && fromIndex != index,
+            onAccept: (fromIndex) {
+              _reorderCells(fromIndex, index);
+            },
+          ),
+        );
+      },
+    );
+  }
+
   void _muteAll() {
     setState(() {
       for (final cell in _cells) {
@@ -550,11 +796,13 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     WakelockPlus.disable();
+    _saveSession();
     for (final cell in _cells) {
       cell.player.dispose();
     }
-    
+
     // Restore orientation
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
@@ -598,45 +846,31 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
         crossAxisCount = 1;
         childAspectRatio = 16 / 20;
         break;
-      case MultiNutzLayout.horizontal2:
-        crossAxisCount = 2;
-        childAspectRatio = 16 / 9;
-        break;
-      case MultiNutzLayout.horizontal3:
-        crossAxisCount = 3;
-        childAspectRatio = 16 / 9;
-        break;
       case MultiNutzLayout.grid2x2:
         crossAxisCount = 2;
         childAspectRatio = 16 / 9;
         break;
       case MultiNutzLayout.grid2x3:
-        crossAxisCount = 2;
-        childAspectRatio = 16 / 11;
-        break;
-      case MultiNutzLayout.grid3x2:
         crossAxisCount = 3;
-        childAspectRatio = 16 / 9;
-        break;
-      case MultiNutzLayout.mixed3_3:
-        crossAxisCount = 2;
         childAspectRatio = 16 / 9;
         break;
     }
 
-    final gridContent = _fullscreenIndex != null
+final gridContent = _fullscreenIndex != null
         ? _buildPlayerCell(_cells[_fullscreenIndex!], true)
-        : GridView.builder(
-            padding: EdgeInsets.fromLTRB(16, topPadding + 64, 16, 96),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: childAspectRatio,
-            ),
-            itemCount: _activeCells,
-            itemBuilder: (context, index) => _buildPlayerCell(_cells[index], false),
-          );
+        : (_isRearrangeMode
+            ? _buildRearrangeGrid(crossAxisCount, childAspectRatio, topPadding)
+            : GridView.builder(
+                padding: EdgeInsets.fromLTRB(16, topPadding + 88, 16, 96),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: childAspectRatio,
+                ),
+                itemCount: _activeCells,
+                itemBuilder: (context, index) => _buildPlayerCell(_cells[index], false, isRearrangeMode: false),
+              ));
 
     final backgroundContent = AnimatedAmbientBackground(
       child: gridContent,
@@ -657,38 +891,48 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
       ),
     ];
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF080A0F),
-      body: ValueListenableBuilder<bool>(
-        valueListenable: GlassSettings.enabled,
-        builder: (context, enabled, _) {
-          final overlays = Stack(children: overlayChildren);
-          if (enabled) {
-            return LiquidGlassView(
-              realTimeCapture: true,
-              useSync: true,
-              pixelRatio: 1.0,
-              refreshRate: LiquidGlassRefreshRate.deviceRefreshRate,
-              regionCapture: true,
-              backgroundWidget: backgroundContent,
-              child: overlays,
+    return PopScope(
+      canPop: _fullscreenIndex == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _fullscreenIndex != null) {
+          setState(() {
+            _fullscreenIndex = null;
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF080A0F),
+        body: ValueListenableBuilder<bool>(
+          valueListenable: GlassSettings.enabled,
+          builder: (context, enabled, _) {
+            final overlays = Stack(children: overlayChildren);
+            if (enabled) {
+              return LiquidGlassView(
+                realTimeCapture: true,
+                useSync: true,
+                pixelRatio: 1.0,
+                refreshRate: LiquidGlassRefreshRate.deviceRefreshRate,
+                regionCapture: true,
+                backgroundWidget: backgroundContent,
+                child: overlays,
+              );
+            }
+            return Container(
+              color: const Color(0xFF080A0F),
+              child: Stack(
+                children: [
+                  RepaintBoundary(child: backgroundContent),
+                  ...overlayChildren,
+                ],
+              ),
             );
-          }
-          return Container(
-            color: const Color(0xFF080A0F),
-            child: Stack(
-              children: [
-                RepaintBoundary(child: backgroundContent),
-                ...overlayChildren,
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildPlayerCell(MultiStreamCell cell, bool isFullscreen) {
+  Widget _buildPlayerCell(MultiStreamCell cell, bool isFullscreen, {bool isRearrangeMode = false}) {
     final palette = AppThemeService.currentPalette.value;
 
     return Container(
@@ -742,7 +986,7 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
             ),
 
           // Empty state click to add stream
-          if (cell.streamUrl == null && !cell.isScanning)
+          if (cell.streamUrl == null && !cell.isScanning && !isRearrangeMode)
             Positioned.fill(
               child: InkWell(
                 onTap: () => _showChannelPicker(cell.index),
@@ -765,9 +1009,9 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
             ),
 
           // Controls HUD overlay (Mute, Pause, Remove, Fullscreen, Stream Picker)
-          if (cell.streamUrl != null && !cell.isScanning)
+          if (cell.streamUrl != null && !cell.isScanning && !isRearrangeMode)
             Positioned(
-              top: 8,
+              top: 12,
               left: 8,
               right: 8,
               child: Row(
@@ -789,10 +1033,37 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
                   ),
                   const Spacer(),
                   // Cell overlay control bar
-                  _buildMiniHudButton(
-                    icon: cell.isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                    color: cell.isMuted ? Colors.white70 : palette.primaryColor,
-                    onTap: () => _onCellVolumeToggle(cell.index),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildMiniHudButton(
+                        icon: cell.isMuted ? Icons.volume_off_rounded : (cell.volume < 0.5 ? Icons.volume_down_rounded : Icons.volume_up_rounded),
+                        color: cell.isMuted ? Colors.white70 : palette.primaryColor,
+                        onTap: () => _onCellVolumeToggle(cell.index),
+                      ),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 64,
+                        height: 32,
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            trackHeight: 3,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                            activeTrackColor: palette.primaryColor,
+                            inactiveTrackColor: Colors.white.withValues(alpha: 0.15),
+                            thumbColor: palette.primaryColor,
+                            overlayColor: palette.primaryColor.withValues(alpha: 0.2),
+                          ),
+                          child: Slider(
+                            value: cell.volume,
+                            min: 0.0,
+                            max: 1.0,
+                            onChanged: (v) => _onCellVolumeChanged(cell.index, v),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(width: 6),
                   _buildMiniHudButton(
@@ -843,14 +1114,14 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        width: 26,
-        height: 26,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.white10),
         ),
-        child: Icon(icon, color: color, size: 14),
+        child: Icon(icon, color: color, size: 20),
       ),
     );
   }
@@ -938,6 +1209,18 @@ class _MultiNutzPageState extends State<MultiNutzPage> {
                         Container(width: 1, height: 24, color: Colors.white24),
                         const SizedBox(width: 16),
                       ],
+                      const SizedBox(width: 16),
+                      _buildGlassButton(
+                        icon: _isRearrangeMode ? Icons.check_rounded : Icons.swap_vert_rounded,
+                        isSelected: _isRearrangeMode,
+                        tooltip: _isRearrangeMode ? 'Done Rearranging' : 'Rearrange Streams',
+                        onTap: () {
+                          setState(() {
+                            _isRearrangeMode = !_isRearrangeMode;
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 8),
                       _buildGlassButton(
                         icon: Icons.volume_off_rounded,
                         isSelected: false,

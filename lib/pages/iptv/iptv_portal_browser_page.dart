@@ -16,11 +16,15 @@ import 'iptv_player_page.dart';
 class IptvPortalBrowserPage extends StatefulWidget {
   final VerifiedPortal? portal;
   final M3uPlaylist? m3uPlaylist;
+  final bool returning;
+  final void Function(String streamUrl, String channelName)? onStreamSelected;
 
   const IptvPortalBrowserPage({
     super.key,
     this.portal,
     this.m3uPlaylist,
+    this.returning = false,
+    this.onStreamSelected,
   });
 
   @override
@@ -533,6 +537,14 @@ class _IptvPortalBrowserPageState extends State<IptvPortalBrowserPage> {
   }
 
   void _playStream(IptvStream stream) {
+    if (widget.returning && widget.onStreamSelected != null) {
+      final url = widget.portal != null
+          ? IptvClient.streamUrl(widget.portal!.portal, stream)
+          : stream.streamId;
+      widget.onStreamSelected!(url, stream.name);
+      Navigator.pop(context);
+      return;
+    }
     final isLive = _activeSection == IptvSection.live;
     final currentList = _filteredStreams();
     final clickedIndex = currentList.indexWhere((s) => s.streamId == stream.streamId);
@@ -632,6 +644,14 @@ class _IptvPortalBrowserPageState extends State<IptvPortalBrowserPage> {
   }
 
   Future<void> _openSeriesEpisodes(IptvStream series) async {
+    if (widget.returning && widget.onStreamSelected != null) {
+      final url = widget.portal != null
+          ? IptvClient.streamUrl(widget.portal!.portal, series)
+          : series.streamId;
+      widget.onStreamSelected!(url, series.name);
+      Navigator.pop(context);
+      return;
+    }
     if (widget.portal == null) return;
 
     showModalBottomSheet(

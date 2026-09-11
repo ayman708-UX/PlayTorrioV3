@@ -508,7 +508,7 @@ class _WatchScreenState extends State<WatchScreen>
               ),
               const SizedBox(width: 32),
               // Right: sources panel (extends to right edge)
-              Expanded(
+              Flexible(
                 flex: rightFlex,
                 child: Padding(
                   padding: const EdgeInsets.only(right: 24),
@@ -1216,7 +1216,14 @@ class _WatchScreenState extends State<WatchScreen>
 
         // Source list
         if (isDesktop)
-          Expanded(child: _buildSourcesList(filtered, isDesktop))
+          Flexible(
+            flex: 1,
+            child: SingleChildScrollView(
+              controller: _sourcesScrollController,
+              physics: const BouncingScrollPhysics(),
+              child: _buildSourcesList(filtered, isDesktop),
+            ),
+          )
         else
           _buildSourcesList(filtered, isDesktop),
       ],

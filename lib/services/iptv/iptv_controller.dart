@@ -142,6 +142,11 @@ class IptvController extends ChangeNotifier {
   M3uPlaylist? activeM3uPlaylist;
   bool isM3uLoading = false;
 
+  // ── Channel picker cache ──
+  List<PortalChannelGroup>? _xtremeGroupsCache;
+  List<M3uChannelGroup>? _m3uGroupsCache;
+  Future<void>? _xtremeFuture;
+
   // ── Init ──
   bool _initialized = false;
   Future<void> init() async {
@@ -318,6 +323,7 @@ class IptvController extends ChangeNotifier {
 
       if (newAlive.isNotEmpty) await IptvStore.save(verified);
 
+      _invalidateChannelCaches();
       canGetMore = _pendingPortals.isNotEmpty ||
           (page?.hasMore ?? canGetMore);
 
@@ -361,6 +367,7 @@ class IptvController extends ChangeNotifier {
     _verifiedKeys
       ..clear()
       ..addAll(verified.map((v) => v.credKey));
+    _invalidateChannelCaches();
     await IptvStore.save(verified);
     statusText = '${freshManual.length} portals still alive.';
     notifyListeners();
@@ -400,6 +407,7 @@ class IptvController extends ChangeNotifier {
     _verifiedKeys.clear();
     selected.clear();
     editMode = false;
+    _invalidateChannelCaches();
     await IptvStore.save(verified);
     notifyListeners();
   }
@@ -412,6 +420,7 @@ class IptvController extends ChangeNotifier {
       ..clear()
       ..addAll(keep.map((v) => v.credKey));
     selected.removeWhere((k) => keys.contains(k));
+    _invalidateChannelCaches();
     await IptvStore.save(keep);
     notifyListeners();
   }
@@ -430,6 +439,7 @@ class IptvController extends ChangeNotifier {
 
   Future<void> deleteAllM3uPlaylists() async {
     m3uPlaylists = const [];
+    _invalidateChannelCaches();
     await M3uStore.saveAll(m3uPlaylists);
     notifyListeners();
   }
@@ -472,6 +482,7 @@ class IptvController extends ChangeNotifier {
     }
     verified = _sortFavoritesFirst([v, ...verified]);
     _verifiedKeys.add(v.credKey);
+    _invalidateChannelCaches();
     await IptvStore.save(verified);
     notifyListeners();
     return true;
@@ -600,6 +611,7 @@ class IptvController extends ChangeNotifier {
 
     if (newAlive.isNotEmpty) {
       verified = _sortFavoritesFirst([...newAlive, ...verified]);
+      _invalidateChannelCaches();
       await IptvStore.save(verified);
     }
 
@@ -626,6 +638,7 @@ class IptvController extends ChangeNotifier {
         channels: channels,
       );
       m3uPlaylists = [...m3uPlaylists, pl];
+      _invalidateChannelCaches();
       await M3uStore.saveAll(m3uPlaylists);
     } finally {
       isM3uLoading = false;
@@ -647,6 +660,7 @@ class IptvController extends ChangeNotifier {
         channels: channels,
       );
       m3uPlaylists = [...m3uPlaylists, pl];
+      _invalidateChannelCaches();
       await M3uStore.saveAll(m3uPlaylists);
     } finally {
       isM3uLoading = false;
@@ -656,6 +670,7 @@ class IptvController extends ChangeNotifier {
 
   Future<void> deleteM3uPlaylist(String id) async {
     m3uPlaylists = m3uPlaylists.where((p) => p.id != id).toList();
+    _invalidateChannelCaches();
     await M3uStore.saveAll(m3uPlaylists);
     notifyListeners();
   }
@@ -1123,6 +1138,96 @@ class IptvController extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  /// Returns all available Xtream channels from verified portals, grouped by portal.
+  Future<List<PortalChannelGroup>> getAllXtremeChannels() async {
+    if (_xtremeGroupsCache != null) return _xtremeGroupsCache!;
+    _xtremeFuture ??= _loadXtremeChannels().then((g) {
+      _xtremeGroupsCache = g;
+      _xtremeFuture = null;
+      notifyListeners();
+    });
+    await _xtremeFuture;
+    return _xtremeGroupsCache!;
+  }
+
+  Future<List<PortalChannelGroup>> _loadXtremeChannels() async {
+    final groups = <PortalChannelGroup>[];
+    for (final portal in verified) {
+      try {
+        final categories = await IptvClient.categories(portal.portal, IptvSection.live);
+        final liveStreams = <IptvStream>[];
+        for (final cat in categories) {
+          final streams = await IptvClient.streams(portal.portal, IptvSection.live, cat.id);
+          liveStreams.addAll(streams);
+        }
+        if (liveStreams.isNotEmpty) {
+          final hits = liveStreams.map((stream) {
+            final url = '${portal.portal.url}/live/${portal.portal.username}/${portal.portal.password}/${stream.streamId}.${stream.containerExt}';
+            return ChannelHit(portal: portal, stream: stream, streamUrl: url);
+          }).toList();
+          groups.add(PortalChannelGroup(portal: portal, hits: hits));
+        }
+      } catch (_) {}
+    }
+    return groups;
+  }
+
+  /// Returns all channels from loaded M3U playlists.
+  List<M3uChannelGroup> getAllM3uChannels() {
+    if (_m3uGroupsCache != null) return _m3uGroupsCache!;
+    _m3uGroupsCache = _buildM3uGroups();
+    return _m3uGroupsCache!;
+  }
+
+  List<M3uChannelGroup> _buildM3uGroups() {
+    final groups = <M3uChannelGroup>[];
+    for (final playlist in m3uPlaylists) {
+      if (playlist.channels.isNotEmpty) {
+        groups.add(M3uChannelGroup(playlist: playlist, channels: playlist.channels));
+      }
+    }
+    return groups;
+  }
+
+  /// Invalidate the channel picker caches when portals or playlists change.
+  void _invalidateChannelCaches() {
+    _xtremeGroupsCache = null;
+    _xtremeFuture = null;
+    _m3uGroupsCache = null;
+  }
+
+  /// Cached Xtream channel groups (sync getter; triggers async load if needed).
+  List<PortalChannelGroup> get xtremeGroups {
+    if (_xtremeGroupsCache != null) return _xtremeGroupsCache!;
+    _xtremeFuture ??= _loadXtremeChannels().then((g) {
+      _xtremeGroupsCache = g;
+      _xtremeFuture = null;
+      notifyListeners();
+    });
+    return _xtremeGroupsCache ?? const [];
+  }
+
+  /// Cached M3U channel groups.
+  List<M3uChannelGroup> get m3uGroups {
+    if (_m3uGroupsCache != null) return _m3uGroupsCache!;
+    _m3uGroupsCache = _buildM3uGroups();
+    return _m3uGroupsCache!;
+  }
+}
+
+class PortalChannelGroup {
+  final VerifiedPortal portal;
+  final List<ChannelHit> hits;
+  const PortalChannelGroup({required this.portal, required this.hits});
+  String get name => portal.name;
+}
+
+class M3uChannelGroup {
+  final M3uPlaylist playlist;
+  final List<M3uChannel> channels;
+  const M3uChannelGroup({required this.playlist, required this.channels});
+  String get name => playlist.name;
 }
 
 class _Candidate {
