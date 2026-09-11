@@ -80,7 +80,7 @@ class MusicService {
     try {
       final albums = await _deezer.getNewReleases(limit: 20);
       if (albums.isNotEmpty) return albums;
-      return _deezer.getChartAlbums(limit: 20);
+      return await _deezer.getChartAlbums(limit: 20);
     } catch (e) {
       debugPrint('fetchNewReleases error: $e');
       return [];
@@ -91,7 +91,7 @@ class MusicService {
     try {
       final playlists = await _deezer.getChartPlaylists(limit: 20);
       if (playlists.isNotEmpty) return playlists;
-      return _deezer.getEditorialSelection(limit: 20);
+      return await _deezer.getEditorialSelection(limit: 20);
     } catch (e) {
       debugPrint('fetchCuratedPlaylists error: $e');
       return [];

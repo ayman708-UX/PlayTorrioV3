@@ -6,6 +6,7 @@ import '../../pages/discover/discover_page.dart';
 import '../../pages/downloads/downloads_page.dart';
 import '../../pages/home/home_page.dart';
 import '../../pages/iptv/iptv_page.dart';
+import '../../pages/multinutz/multinutz_page.dart';
 import '../../pages/manga/manga_page.dart';
 import '../../pages/music/music_page.dart';
 import '../../pages/my_list/my_list_page.dart';
@@ -193,6 +194,19 @@ class AppLiquidDock extends StatelessWidget {
                   onTap: () {
                     if (currentDestination == DockItemKey.liveTv) return;
                     _navigateToPage(context, const IptvPage());
+                  },
+                ),
+              );
+              break;
+
+            case DockItemKey.multiNutz:
+              items.add(
+                DockItem(
+                  icon: itemKey.icon,
+                  label: itemKey.label,
+                  onTap: () {
+                    if (currentDestination == DockItemKey.multiNutz) return;
+                    _navigateToPage(context, const MultiNutzPage());
                   },
                 ),
               );

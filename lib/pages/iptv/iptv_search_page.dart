@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import '../../models/iptv/iptv_models.dart';
 import '../../services/iptv/hardcoded_channels.dart';
 import '../../widgets/iptv/iptv_channel_card.dart';
 import 'iptv_channel_sheet.dart';
 
 class IptvSearchPage extends StatefulWidget {
-  const IptvSearchPage({super.key});
+  final List<QuickChannel> quickChannels;
+
+  const IptvSearchPage({super.key, this.quickChannels = const []});
 
   @override
   State<IptvSearchPage> createState() => _IptvSearchPageState();
@@ -25,6 +28,11 @@ class _IptvSearchPageState extends State<IptvSearchPage> {
     'Arabic',
     'Discovery',
     'Kids',
+    'US',
+    'UK',
+    'CA',
+    'Bay Area',
+    'Int. Sports',
   ];
 
   @override
@@ -34,16 +42,50 @@ class _IptvSearchPageState extends State<IptvSearchPage> {
   }
 
   List<HardcodedChannel> _filteredChannels() {
-    return HardcodedChannels.all.where((c) {
+    final q = _query.toLowerCase();
+    final results = <HardcodedChannel>[];
+
+    // Search hardcoded channels
+    for (final c in HardcodedChannels.all) {
       final matchesCategory = _selectedCategory == 'All' || c.category == _selectedCategory;
-      if (!matchesCategory) return false;
-      if (_query.trim().isEmpty) return true;
-      final q = _query.toLowerCase();
-      return c.name.toLowerCase().contains(q) ||
+      if (!matchesCategory) continue;
+      if (_query.trim().isEmpty) {
+        results.add(c);
+        continue;
+      }
+      if (c.name.toLowerCase().contains(q) ||
           c.short.toLowerCase().contains(q) ||
-          c.keywords.any((k) => k.toLowerCase().contains(q));
-    }).toList();
+          c.keywords.any((k) => k.toLowerCase().contains(q))) {
+        results.add(c);
+      }
+    }
+
+    // Also search user-added Quick Channels
+    for (final qc in widget.quickChannels) {
+      if (_selectedCategory != 'All' && qc.category != _selectedCategory) continue;
+      if (_query.trim().isEmpty) {
+        results.add(_toHardcoded(qc));
+        continue;
+      }
+      if (qc.name.toLowerCase().contains(q) ||
+          qc.short.toLowerCase().contains(q) ||
+          qc.keywords.any((k) => k.toLowerCase().contains(q))) {
+        results.add(_toHardcoded(qc));
+      }
+    }
+
+    return results;
   }
+
+  static HardcodedChannel _toHardcoded(QuickChannel ch) => HardcodedChannel(
+        id: 'qc_${ch.id}',
+        name: ch.name,
+        short: ch.short,
+        category: ch.category,
+        keywords: ch.keywords,
+        gradient: ch.gradient,
+        iconUrl: ch.iconUrl,
+      );
 
   @override
   Widget build(BuildContext context) {

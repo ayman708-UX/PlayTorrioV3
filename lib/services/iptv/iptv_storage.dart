@@ -238,3 +238,42 @@ class IptvPortalFavoritesStore {
   }
 }
 
+/// Custom quick channels store (user-added channels).
+class IptvQuickChannelStore {
+  static const String _key = 'pt_iptv_quick_channels';
+
+  static Future<List<QuickChannel>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
+    if (raw == null) return [];
+    try {
+      final arr = json.decode(raw) as List;
+      return arr.map((e) {
+        final o = e as Map<String, dynamic>;
+        return QuickChannel.fromJson(o);
+      }).toList();
+    } catch (e) {
+      debugPrint('IptvQuickChannelStore.load failed: $e');
+      return [];
+    }
+  }
+
+  static Future<void> save(List<QuickChannel> channels) async {
+    final prefs = await SharedPreferences.getInstance();
+    final arr = channels.map((c) => c.toJson()).toList();
+    await prefs.setString(_key, json.encode(arr));
+  }
+
+  static Future<void> add(QuickChannel channel) async {
+    final list = await load();
+    list.add(channel);
+    await save(list);
+  }
+
+  static Future<void> remove(String id) async {
+    final list = await load();
+    list.removeWhere((c) => c.id == id);
+    await save(list);
+  }
+}
+

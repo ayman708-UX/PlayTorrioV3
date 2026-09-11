@@ -12,6 +12,12 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - 'build/**'
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
   errors:
     deprecated_member_use: ignore
     avoid_print: ignore
