@@ -60,6 +60,11 @@ abstract final class IptvSettings {
     'Arabic & Regional Hub',
     'Discovery & Documentaries',
     'Kids & Family',
+    'US Region',
+    'UK Region',
+    'Canada Region',
+    'Bay Area',
+    'International Sports',
   ];
 
   // Live TV Values
@@ -123,7 +128,11 @@ abstract final class IptvSettings {
 
     final savedCats = prefs.getStringList(_keyVisibleCategories);
     if (savedCats != null && savedCats.isNotEmpty) {
-      visibleCategories.value = savedCats;
+      final merged = List<String>.from(savedCats);
+      for (final d in defaultCategories) {
+        if (!merged.contains(d)) merged.add(d);
+      }
+      visibleCategories.value = merged;
     } else {
       visibleCategories.value = List.from(defaultCategories);
     }

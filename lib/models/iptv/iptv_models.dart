@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 // Models ported from PlayTorrio TV IPTV system.
 // Pure data classes - no heavy dependencies.
 
@@ -125,6 +127,54 @@ class IptvEpisode {
     required this.plot,
     required this.image,
   });
+}
+
+/// Custom user-added quick channel for the Live TV quick channels row.
+class QuickChannel {
+  final String id;
+  final String name;
+  final String short;
+  final String category;
+  final List<String> keywords;
+  final List<Color> gradient;
+  final String? iconUrl;
+
+  const QuickChannel({
+    required this.id,
+    required this.name,
+    required this.short,
+    required this.category,
+    required this.keywords,
+    required this.gradient,
+    this.iconUrl,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'short': short,
+        'category': category,
+        'keywords': keywords,
+        'gradient': gradient.map((c) => '#${c.value.toRadixString(16)}').toList(),
+        'iconUrl': iconUrl,
+      };
+
+  factory QuickChannel.fromJson(Map<String, dynamic> j) => QuickChannel(
+        id: j['id'] as String,
+        name: j['name'] as String,
+        short: j['short'] as String,
+        category: j['category'] as String? ?? 'Quick',
+        keywords: (j['keywords'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ?? [],
+        gradient: (j['gradient'] as List<dynamic>?)
+                ?.map((e) {
+                  final hex = e as String;
+                   return Color(int.parse('0x${hex.replaceFirst('#', '')}'));
+                })
+                .toList() ?? [Colors.grey, Colors.black54],
+        iconUrl: j['iconUrl'] as String?,
+      );
 }
 
 /// A single alive stream found while resolving a HardcodedChannel.

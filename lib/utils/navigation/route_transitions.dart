@@ -1,6 +1,15 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+/// Standard Material-style push transition helper.
+Route<T> materialRoute<T>({required WidgetBuilder builder, RouteSettings? settings}) =>
+    PageRouteBuilder<T>(
+      pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(opacity: animation, child: child),
+      settings: settings,
+    );
+
 /// A premium, liquid-like circular reveal transition. 
 /// The new screen expands like a drop of liquid from the exact point the user tapped,
 /// while the old screen scales back slightly into the distance.

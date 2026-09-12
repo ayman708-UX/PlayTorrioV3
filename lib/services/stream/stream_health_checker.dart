@@ -64,7 +64,7 @@ class StreamHealthChecker {
           final redirectedUri = Uri.parse(url).resolve(location).toString();
           final redirectHeaders = PlayerSettings.resolveStreamHeaders(redirectedUri, headers);
           client.close();
-          return _probeUrl(redirectedUri, redirectHeaders, redirectCount + 1);
+          return await _probeUrl(redirectedUri, redirectHeaders, redirectCount + 1);
         }
         return false;
       }

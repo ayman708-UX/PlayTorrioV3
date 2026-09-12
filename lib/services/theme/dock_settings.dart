@@ -58,6 +58,13 @@ enum DockItemKey {
     isRemovable: true,
     description: 'Watch worldwide live television channels and sports streams.',
   ),
+  multiNutz(
+    key: 'multinutz',
+    label: 'MultiNutz',
+    icon: Icons.apps_rounded,
+    isRemovable: true,
+    description: 'Multi-window layout with Picture-in-Picture support.',
+  ),
   addons(
     key: 'addons',
     label: 'Addons',

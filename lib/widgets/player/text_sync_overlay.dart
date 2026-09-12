@@ -327,10 +327,11 @@ class _TextSyncOverlayState extends State<TextSyncOverlay> {
       alignment: Alignment.centerRight,
       child: Material(
         color: Colors.transparent,
-        child: Container(
+        child: SizedBox(
           width: panelWidth,
-          height: double.infinity,
-          decoration: const BoxDecoration(
+          height: MediaQuery.sizeOf(context).height,
+          child: Container(
+            decoration: const BoxDecoration(
             color: Color(0xF4080C12),
             border: Border(
               left: BorderSide(color: PlayerTheme.edge),
@@ -792,6 +793,7 @@ class _TextSyncOverlayState extends State<TextSyncOverlay> {
           ),
         ),
       ),
+    ),
     );
   }
 

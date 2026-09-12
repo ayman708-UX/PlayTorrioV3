@@ -238,10 +238,11 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
 
     return Align(
       alignment: Alignment.centerRight,
-      child: Container(
+      child: SizedBox(
         width: drawerWidth,
-        height: double.infinity,
-        decoration: BoxDecoration(
+        height: MediaQuery.sizeOf(context).height,
+        child: Container(
+          decoration: BoxDecoration(
           color: const Color(0xF2080C14),
           border: const Border(
             left: BorderSide(color: Color(0x33FFFFFF), width: 1.2),
@@ -282,6 +283,7 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
           ),
         ),
       ),
+    ),
     );
   }
 

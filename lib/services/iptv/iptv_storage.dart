@@ -238,3 +238,115 @@ class IptvPortalFavoritesStore {
   }
 }
 
+/// Custom quick channels store (user-added channels).
+class IptvQuickChannelStore {
+  static const String _key = 'pt_iptv_quick_channels';
+
+  static Future<List<QuickChannel>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
+    if (raw == null) return [];
+    try {
+      final arr = json.decode(raw) as List;
+      return arr.map((e) {
+        final o = e as Map<String, dynamic>;
+        return QuickChannel.fromJson(o);
+      }).toList();
+    } catch (e) {
+      debugPrint('IptvQuickChannelStore.load failed: $e');
+      return [];
+    }
+  }
+
+  static Future<void> save(List<QuickChannel> channels) async {
+    final prefs = await SharedPreferences.getInstance();
+    final arr = channels.map((c) => c.toJson()).toList();
+    await prefs.setString(_key, json.encode(arr));
+  }
+
+  static Future<void> add(QuickChannel channel) async {
+    final list = await load();
+    list.add(channel);
+    await save(list);
+  }
+
+  static Future<void> remove(String id) async {
+    final list = await load();
+    list.removeWhere((c) => c.id == id);
+    await save(list);
+  }
+}
+
+/// Persisted state for a single MultiNutz cell.
+class MultiNutzCellState {
+  final int index;
+  final String? channelName;
+  final String? streamUrl;
+  final double volume;
+  final bool isMuted;
+  final bool wasPlaying;
+
+  const MultiNutzCellState({
+    required this.index,
+    this.channelName,
+    this.streamUrl,
+    this.volume = 0.5,
+    this.isMuted = true,
+    this.wasPlaying = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'index': index,
+        'channelName': channelName,
+        'streamUrl': streamUrl,
+        'volume': volume,
+        'isMuted': isMuted,
+        'wasPlaying': wasPlaying,
+      };
+
+  factory MultiNutzCellState.fromJson(Map<String, dynamic> o) =>
+      MultiNutzCellState(
+        index: o['index'] as int? ?? 0,
+        channelName: o['channelName'] as String?,
+        streamUrl: o['streamUrl'] as String?,
+        volume: (o['volume'] as num?)?.toDouble() ?? 0.5,
+        isMuted: o['isMuted'] as bool? ?? true,
+        wasPlaying: o['wasPlaying'] as bool? ?? false,
+      );
+}
+
+/// Persistent session store for the MultiNutz multi-window page.
+/// Saves each cell's stream URL, name, volume, mute state and play state
+/// so the user can leave the tab and return to find their streams still loaded.
+class MultiNutzSessionStore {
+  static const String _key = 'pt_multinutz_session';
+  static const int maxCells = 6;
+
+  static Future<List<MultiNutzCellState>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
+    if (raw == null) return [];
+    try {
+      final arr = json.decode(raw) as List;
+      return arr
+          .map((e) => MultiNutzCellState.fromJson(e as Map<String, dynamic>))
+          .where((s) => s.streamUrl != null && s.streamUrl!.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('MultiNutzSessionStore.load failed: $e');
+      return [];
+    }
+  }
+
+  static Future<void> save(List<MultiNutzCellState> states) async {
+    final prefs = await SharedPreferences.getInstance();
+    final arr = states.map((s) => s.toJson()).toList();
+    await prefs.setString(_key, json.encode(arr));
+  }
+
+  static Future<void> clear() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
+  }
+}
+

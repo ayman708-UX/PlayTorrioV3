@@ -310,7 +310,7 @@ class TraktService {
       final authorization = await ProfileAsyncAuthorization.capture(
         ProfileFeature.trackersAndDiscovery,
       );
-      if (authorization == null) return _refreshAccessTokenScoped();
+      if (authorization == null) return await _refreshAccessTokenScoped();
       return await authorization.run(_refreshAccessTokenScoped);
     } on StateError {
       return false;
