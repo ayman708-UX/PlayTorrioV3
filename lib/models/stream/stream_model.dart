@@ -394,6 +394,57 @@ class StreamSource {
     return _cachedSizeBytes = null;
   }
 
+  static final RegExp _bitrateRegex = RegExp(
+    r'(\d+(?:[.,]\d+)?)\s*(mbps|mb/s|mbit/s|kbps|kb/s|kbit/s)',
+    caseSensitive: false,
+  );
+
+  int? _cachedBitrateKbps;
+  bool _bitrateComputed = false;
+  /// Extract video bitrate in kbps if mentioned in title, name, or description.
+  /// Audio-only rates (e.g. "AAC 128kbps") are ignored via the 500kbps floor.
+  int? get bitrateKbps {
+    if (_bitrateComputed) return _cachedBitrateKbps;
+    _bitrateComputed = true;
+    final text = '${title ?? ''} ${name ?? ''} ${description ?? ''}';
+    final match = _bitrateRegex.firstMatch(text);
+    if (match != null) {
+      final val = double.tryParse((match.group(1) ?? '').replaceAll(',', '.'));
+      final unit = (match.group(2) ?? '').toLowerCase();
+      if (val != null) {
+        final kbps = unit.startsWith('m') ? val * 1000 : val;
+        if (unit.startsWith('m') ? kbps >= 200 : kbps >= 500) {
+          return _cachedBitrateKbps = kbps.round();
+        }
+      }
+    }
+    return _cachedBitrateKbps = null;
+  }
+
+  /// Rough bitrate derived from file size and runtime in minutes.
+  /// Used for torrent/debrid sources that don't state a bitrate anywhere.
+  int? estimatedBitrateKbps(int? runtimeMinutes) {
+    final known = bitrateKbps;
+    if (known != null) return known;
+    final sz = sizeBytes;
+    if (sz == null || runtimeMinutes == null || runtimeMinutes <= 0) return null;
+    return (sz * 8 / (runtimeMinutes * 60) / 1000).round();
+  }
+
+  /// Formatted bitrate label, e.g. '12.4 Mb/s' or '850 kb/s'.
+  String? get bitrateLabel {
+    final kbps = bitrateKbps;
+    if (kbps == null) return null;
+    return formatBitrate(kbps);
+  }
+
+  static String formatBitrate(int kbps) {
+    if (kbps >= 1000) {
+      return '${(kbps / 1000).toStringAsFixed(1)} Mb/s';
+    }
+    return '$kbps kb/s';
+  }
+
   int? _cachedSeeders;
   bool _seedersComputed = false;
   /// Extracted seeders count from title, name, or description.
