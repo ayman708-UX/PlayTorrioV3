@@ -6,6 +6,7 @@ import '../../models/movie/movie_detail.dart';
 import '../../models/movie/video.dart';
 import '../../models/stream/stream_model.dart';
 import '../../services/stream/stream_service.dart';
+import '../../services/stream/stream_bitrate_resolver.dart';
 import '../../services/anime/anime_scraper_service.dart';
 import '../../services/anime_arabic/anime_arabic_service.dart';
 import '../../services/anime_arabic/anime_arabic_extractor.dart';
@@ -47,6 +48,12 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
   StreamSubscription<StreamSource>? _streamSub;
   int? _hoveredIndex;
 
+  // Resolved bitrates for direct streams (url -> kbps), read from HLS manifests
+  final Map<String, int> _resolvedBitrates = {};
+  final List<StreamSource> _bitrateProbeQueue = [];
+  int _activeBitrateProbes = 0;
+  static const int _maxConcurrentBitrateProbes = 4;
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +61,7 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
     if (widget.cachedSources != null && widget.cachedSources!.isNotEmpty) {
       _sources.addAll(widget.cachedSources!);
       _isLoading = false;
+      _queueBitrateProbes(_sources);
     } else {
       _startScraping();
     }
@@ -123,6 +131,7 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
                 _sources.addAll(sources);
                 _isLoading = false;
               });
+              _queueBitrateProbes(sources);
               widget.onSourcesLoaded(List.from(_sources));
             }
             return;
@@ -172,6 +181,7 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
                 (s.name == source.name && s.title == source.title));
             if (!exists) {
               _sources.add(source);
+              _queueBitrateProbes([source]);
             }
           });
         },
@@ -208,6 +218,7 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
               (s.name == source.name && s.title == source.title));
           if (!exists) {
             _sources.add(source);
+            _queueBitrateProbes([source]);
           }
         });
       },
@@ -531,6 +542,33 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
     );
   }
 
+  // Direct streams don't expose a bitrate in their titles, so we peek at the
+  // HLS master manifest and read the top variant's BANDWIDTH.
+  void _queueBitrateProbes(List<StreamSource> sources) {
+    for (final s in sources) {
+      if (!s.isHttpDirect || s.bitrateKbps != null) continue;
+      final url = s.url;
+      if (url == null || url.isEmpty || _resolvedBitrates.containsKey(url)) continue;
+      _bitrateProbeQueue.add(s);
+    }
+    _drainBitrateProbeQueue();
+  }
+
+  void _drainBitrateProbeQueue() {
+    while (_activeBitrateProbes < _maxConcurrentBitrateProbes &&
+        _bitrateProbeQueue.isNotEmpty) {
+      final source = _bitrateProbeQueue.removeAt(0);
+      _activeBitrateProbes++;
+      StreamBitrateResolver.resolveKbps(source).then((kbps) {
+        _activeBitrateProbes--;
+        if (kbps != null && mounted) {
+          setState(() => _resolvedBitrates[source.url!] = kbps);
+        }
+        _drainBitrateProbeQueue();
+      });
+    }
+  }
+
   Widget _buildSourceCard(
     StreamSource source,
     int index,
@@ -540,6 +578,7 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
     final title = source.title ?? source.name ?? 'Stream Source';
     final isTorrent = source.infoHash != null && source.infoHash!.isNotEmpty;
     final resolution = _extractResolution(title);
+    final bitrateKbps = source.bitrateKbps ?? _resolvedBitrates[source.url];
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredIndex = index),
@@ -635,6 +674,28 @@ class _PlayerSourcesPanelState extends State<PlayerSourcesPanel> {
                               ),
                             ),
                           ),
+
+                          if (bitrateKbps != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              margin: const EdgeInsets.only(right: 6),
+                              decoration: BoxDecoration(
+                                color: PlayerTheme.accent.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: PlayerTheme.accent.withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: Text(
+                                StreamSource.formatBitrate(bitrateKbps),
+                                style: const TextStyle(
+                                  color: Color(0xFF9D84FF),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
 
                           if (source.name != null && source.name!.isNotEmpty) ...[
                             Flexible(
