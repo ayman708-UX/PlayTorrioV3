@@ -46,6 +46,45 @@ void main() {
       });
     });
 
+    group('bitrate detection', () {
+      test('detects Mb/s from title', () {
+        final source = StreamSource(addonName: 'Torrentio', title: 'Movie.2024.1080p.WEB-DL.8.5Mb/s.x264.mkv', url: 'https://example.com');
+        expect(source.bitrateKbps, 8500);
+        expect(source.bitrateLabel, '8.5 Mb/s');
+      });
+      test('detects kbps from title', () {
+        final source = StreamSource(addonName: 'Torrentio', title: 'Movie.2024.720p.WEBRip.4237kbps.mkv', url: 'https://example.com');
+        expect(source.bitrateKbps, 4237);
+        expect(source.bitrateLabel, '4.2 Mb/s');
+      });
+      test('ignores audio-only bitrates', () {
+        final source = StreamSource(addonName: 'Torrentio', title: 'Movie.2024.1080p.AAC.128kbps.mkv', url: 'https://example.com');
+        expect(source.bitrateKbps, isNull);
+      });
+      test('returns null when no bitrate is mentioned', () {
+        final source = StreamSource(addonName: 'Torrentio', title: 'Movie.2024.1080p.BluRay.x264.mkv', url: 'https://example.com');
+        expect(source.bitrateKbps, isNull);
+        expect(source.bitrateLabel, isNull);
+      });
+    });
+
+    group('estimatedBitrateKbps', () {
+      test('estimates from file size and runtime', () {
+        // 2 GiB over ~90 min -> (2147483648 * 8) / 5400s ~= 3181 kbps
+        final source = StreamSource(addonName: 'Torrentio', title: 'Movie.2024.1080p.2.0 GB.mkv', url: 'https://example.com');
+        expect(source.estimatedBitrateKbps(90), 3181);
+      });
+      test('prefers the stated bitrate over the estimate', () {
+        final source = StreamSource(addonName: 'Torrentio', title: 'Movie.2024.1080p.2.0 GB.12Mb/s.mkv', url: 'https://example.com');
+        expect(source.estimatedBitrateKbps(90), 12000);
+      });
+      test('returns null without size or runtime', () {
+        final source = StreamSource(addonName: 'Torrentio', title: 'Movie.2024.1080p.mkv', url: 'https://example.com');
+        expect(source.estimatedBitrateKbps(null), isNull);
+        expect(source.estimatedBitrateKbps(90), isNull);
+      });
+    });
+
     group('audio language detection (Spanish Castilian & Latin American)', () {
       test('detects Castilian Spanish from Castellano tag', () {
         final source = StreamSource(

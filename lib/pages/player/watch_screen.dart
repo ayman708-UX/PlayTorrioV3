@@ -18,6 +18,7 @@ import '../../models/subtitle/subtitle_model.dart';
 import './player_screen.dart';
 import '../../services/addon/addon_manager.dart';
 import '../../services/stream/stream_service.dart';
+import '../../services/stream/stream_bitrate_resolver.dart';
 import '../../services/theme/glass_settings.dart';
 import '../../services/scraper/builtin_providers_settings_service.dart';
 import '../../widgets/common/performance_liquid_lens.dart';
@@ -88,6 +89,12 @@ class _WatchScreenState extends State<WatchScreen>
   final List<StreamSource> _pendingSources = [];
   final List<SubtitleVariant> _discoveredSubtitles = [];
   final Set<String> _seenSubtitleUrls = {};
+
+  // Direct-stream bitrate probes (url -> resolved kbps)
+  final Map<String, int> _resolvedBitrates = {};
+  final List<StreamSource> _bitrateProbeQueue = [];
+  int _activeBitrateProbes = 0;
+  static const int _maxConcurrentBitrateProbes = 4;
   Timer? _sourceBatchTimer;
   bool _isLoadingSources = true;
   StreamSubscription<StreamSource>? _streamSub;
@@ -230,6 +237,35 @@ class _WatchScreenState extends State<WatchScreen>
     setState(() {
       _sources.addAll(batch);
     });
+    _queueBitrateProbes(batch);
+  }
+
+  // Direct streams don't carry a bitrate in their titles, so we peek at the
+  // HLS master manifest and read the top variant's BANDWIDTH. Torrent/debrid
+  // sources instead get a rough size/runtime estimate on the card itself.
+  void _queueBitrateProbes(List<StreamSource> batch) {
+    for (final s in batch) {
+      if (!s.isHttpDirect || s.bitrateKbps != null) continue;
+      final url = s.url;
+      if (url == null || url.isEmpty || _resolvedBitrates.containsKey(url)) continue;
+      _bitrateProbeQueue.add(s);
+    }
+    _drainBitrateProbeQueue();
+  }
+
+  void _drainBitrateProbeQueue() {
+    while (_activeBitrateProbes < _maxConcurrentBitrateProbes &&
+        _bitrateProbeQueue.isNotEmpty) {
+      final source = _bitrateProbeQueue.removeAt(0);
+      _activeBitrateProbes++;
+      StreamBitrateResolver.resolveKbps(source).then((kbps) {
+        _activeBitrateProbes--;
+        if (kbps != null && mounted) {
+          setState(() => _resolvedBitrates[source.url!] = kbps);
+        }
+        _drainBitrateProbeQueue();
+      });
+    }
   }
 
   String? _selectedAddonFilter;
@@ -705,6 +741,8 @@ class _WatchScreenState extends State<WatchScreen>
                         episode: widget.selectedEpisode,
                         initialPosition: widget.initialPosition,
                         initialSubtitles: _discoveredSubtitles,
+                        resolvedBitrateKbps:
+                            _resolvedBitrates[filtered[index].url],
                       ),
                     );
                   },
@@ -1311,6 +1349,7 @@ class _WatchScreenState extends State<WatchScreen>
           episode: widget.selectedEpisode,
           initialPosition: widget.initialPosition,
           initialSubtitles: _discoveredSubtitles,
+          resolvedBitrateKbps: _resolvedBitrates[sources[index].url],
         );
       },
     );
@@ -2809,6 +2848,7 @@ class _SourceCard extends StatefulWidget {
   final Video? episode;
   final Duration? initialPosition;
   final List<SubtitleVariant>? initialSubtitles;
+  final int? resolvedBitrateKbps;
 
   const _SourceCard({
     required this.source,
@@ -2818,6 +2858,7 @@ class _SourceCard extends StatefulWidget {
     this.episode,
     this.initialPosition,
     this.initialSubtitles,
+    this.resolvedBitrateKbps,
   });
 
   @override
@@ -2853,6 +2894,19 @@ class _SourceCardState extends State<_SourceCard> {
 
     if (s.isHDR) badges.add(_badge('HDR', const Color(0xFFFFD43B)));
     if (s.codec != null) badges.add(_badge(s.codec!, _C.textTertiary));
+
+    // Bitrate: parsed from the title, resolved from the HLS manifest for
+    // direct streams, or estimated from size/runtime as a last resort.
+    final runtimeMinutes = int.tryParse(widget.detail.runtime ?? '');
+    final exactBitrate = s.bitrateKbps ?? widget.resolvedBitrateKbps;
+    final bitrateKbps = exactBitrate ?? s.estimatedBitrateKbps(runtimeMinutes);
+    if (bitrateKbps != null) {
+      final label = exactBitrate != null
+          ? StreamSource.formatBitrate(bitrateKbps)
+          : '~${StreamSource.formatBitrate(bitrateKbps)}';
+      badges.add(_badge(label, _bitrateBadgeColor(bitrateKbps)));
+    }
+
     if (s.fileSize != null) badges.add(_badge(s.fileSize!, _C.textTertiary));
     if (s.seeders != null) {
       final seederColor = s.seeders! >= 20
@@ -3074,6 +3128,12 @@ class _SourceCardState extends State<_SourceCard> {
     ),
   );
 }
+
+  Color _bitrateBadgeColor(int kbps) {
+    if (kbps >= 15000) return const Color(0xFF10B981);
+    if (kbps >= 4000) return const Color(0xFF339AF0);
+    return const Color(0xFFFF922B);
+  }
 
   Widget _badge(String text, Color color) {
     return Container(
